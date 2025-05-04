@@ -1,22 +1,19 @@
 package utils
 
 import (
-	"log"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var JWTSecret string
+var JWTSecret []byte
 
-func LoadJWT() {
-	JWTSecret = os.Getenv("JWT_SECRET")
-	if JWTSecret == "" {
-		log.Fatal("JWT_SECRET not set in environment")
-	}
+// InitialiseJWT initializes the JWT secret key.
+func InitialiseJWT(key string) {
+	JWTSecret = []byte(key)
 }
 
+// GenerateJWT generates a JWT token with userID and 24-hour expiration.
 func GenerateJWT(userID string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,

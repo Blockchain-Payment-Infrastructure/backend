@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"net/mail"
 
@@ -29,17 +30,18 @@ func RegisterHandler(c *gin.Context) {
 
 	_, err := mail.ParseAddress(req.Email)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidEmailAddress})
+		c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidEmailAddress.Error()})
 	}
 
 	if services.UserExists(req.Email, req.Phone) {
-		c.JSON(http.StatusConflict, gin.H{"error": ErrUserExists})
+		c.JSON(http.StatusConflict, gin.H{"error": ErrUserExists.Error()})
 		return
 	}
 
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrHashFailed})
+		log.Printf("Failed to hash password: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrHashFailed.Error()})
 		return
 	}
 
@@ -52,7 +54,8 @@ func RegisterHandler(c *gin.Context) {
 
 	err = services.CreateUser(user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrCreateUserFailed})
+		log.Printf("User creation failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrCreateUserFailed.Error()})
 		return
 	}
 }

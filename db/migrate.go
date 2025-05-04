@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func RunMigrations() {
@@ -15,7 +16,7 @@ func RunMigrations() {
 
 	m, err := migrate.NewWithDatabaseInstance("file://db/migrations", "postgres", driver)
 	if err != nil {
-		log.Fatalf("Migration instance creation failed")
+		log.Fatalf("Migration instance creation failed: %v", err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
