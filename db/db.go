@@ -10,7 +10,8 @@ import (
 var DB *sqlx.DB
 
 func InitDB(connectionString string) error {
-	DB, err := sqlx.Open("postgres", connectionString)
+	var err error
+	DB, err = sqlx.Open("postgres", connectionString)
 	if err != nil {
 		return err
 	}
