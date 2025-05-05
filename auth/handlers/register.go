@@ -33,7 +33,7 @@ func RegisterHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidEmailAddress.Error()})
 	}
 
-	if services.UserExists(req.Email, req.Phone) {
+	if services.UserExists(req.Username, req.Email, req.Phone) {
 		c.JSON(http.StatusConflict, gin.H{"error": ErrUserExists.Error()})
 		return
 	}
