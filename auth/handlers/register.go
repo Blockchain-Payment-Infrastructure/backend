@@ -46,6 +46,7 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	user := models.User{
+		Username:       req.Username,
 		ID:             uuid.New().String(),
 		Email:          req.Email,
 		Phone:          req.Phone,

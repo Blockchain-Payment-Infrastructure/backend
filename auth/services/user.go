@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/Blockchain-Payment-Infrastructure/backend/auth/models"
 	"github.com/Blockchain-Payment-Infrastructure/backend/db"
@@ -24,7 +25,7 @@ func UserExists(username, email, phone string) bool {
 }
 
 func CreateUser(user models.User) error {
-	_, err := db.DB.Exec(`INSERT INTO users (id, username, email, phone, hashed_password) VALUES ($1, $2, $3, $4, $5)`, user.ID, user.Username, user.Email, user.Phone, user.HashedPassword)
+	_, err := db.DB.Exec(`INSERT INTO users (id, username, email, phone, hashed_password, created_at) VALUES ($1, $2, $3, $4, $5, $6)`, user.ID, user.Username, user.Email, user.Phone, user.HashedPassword, time.Now())
 	if err != nil {
 		log.Println("Error while creating user: ", err)
 	}

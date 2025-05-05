@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
@@ -13,9 +15,10 @@ type LoginRequest struct {
 }
 
 type User struct {
-	ID             string `db:"id"`
-	Username       string `db:"username"`
-	Email          string `db:"email"`
-	Phone          string `db:"phone"`
-	HashedPassword string `db:"hashed_password"`
+	ID             string    `db:"id"`
+	Username       string    `db:"username"`
+	Email          string    `db:"email"`
+	Phone          string    `db:"phone"`
+	HashedPassword string    `db:"hashed_password"`
+	CreatedAt      time.Time `db:"created_at"`
 }
