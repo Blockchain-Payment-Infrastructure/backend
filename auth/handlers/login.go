@@ -43,15 +43,23 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
-	token, err := utils.GenerateJWT(user.ID)
+	accessToken, err := utils.GenerateAccessToken(user.ID)
 	if err != nil {
-		log.Printf("Failed to generate JWT token: %v", err)
+		log.Printf("Failed to generate JWT Access token: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrJWTTokenGenerationFailed.Error()})
+		return
+	}
+
+	refreshToken, err := utils.GenerateRefreshToken(user.ID)
+	if err != nil {
+		log.Printf("Failed to generate JWT Refresh token: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrJWTTokenGenerationFailed.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Login Successful",
-		"token":   token,
+		"message":       "Login Successful",
+		"refresh_token": refreshToken,
+		"access_token":  accessToken,
 	})
 }

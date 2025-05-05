@@ -8,18 +8,26 @@ import (
 
 var JWTSecret []byte
 
-// InitialiseJWT initializes the JWT secret key.
-func InitialiseJWT(key string) {
-	JWTSecret = []byte(key)
+func InitialiseJWT(access string) {
+	JWTSecret = []byte(access)
 }
 
-// GenerateJWT generates a JWT token with userID and 24-hour expiration.
-func GenerateJWT(userID string) (string, error) {
+func GenerateAccessToken(userID string) (string, error) {
+	return generateJWT(userID, JWTSecret, 15*time.Minute)
+}
+
+func GenerateRefreshToken(userID string) (string, error) {
+	return generateJWT(userID, JWTSecret, 15*time.Minute)
+}
+
+func generateJWT(userID string, secret []byte, duration time.Duration) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"sub": userID,
+		"aud": "user",
+		"exp": time.Now().Add(duration).Unix(),
+		"iat": time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 
-	return token.SignedString(JWTSecret)
+	return token.SignedString(secret)
 }

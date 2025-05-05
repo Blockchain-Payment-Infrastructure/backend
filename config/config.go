@@ -18,9 +18,9 @@ func LoadEnv() error {
 		log.Fatal("DATABASE_URL is not set in environment")
 	}
 
-	JWTSecret = os.Getenv("JWT_SECRET")
+	JWTSecret = os.Getenv("JWT_ACCESS_SECRET")
 	if JWTSecret == "" {
-		log.Fatal("JWT_SECRET is not set in environment")
+		log.Fatal("JWT_ACCESS_SECRET is not set in environment")
 	}
 
 	AivenPGCert = os.Getenv("AIVEN_PG_CERT")
