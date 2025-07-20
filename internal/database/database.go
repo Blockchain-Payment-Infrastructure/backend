@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/joho/godotenv/autoload"
 )
@@ -37,6 +43,28 @@ var (
 	host       = os.Getenv("DB_HOST")
 	dbInstance *service
 )
+
+func Migrate() {
+	New() // Initialize database connection if not done already
+
+	driver, err := postgres.WithInstance(dbInstance.db, &postgres.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://db/migrations",
+		"postgres", driver,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Skip no change error
+	if err := m.Up(); !errors.Is(err, migrate.ErrNoChange) {
+		log.Fatal(err)
+	}
+}
 
 func New() Service {
 	// Reuse Connection
