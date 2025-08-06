@@ -46,9 +46,7 @@ func main() {
 	// Display both time and line number of log statements
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	log.Println("Beginning Database Migration")
 	database.Migrate()
-	log.Println("Finished Database Migration")
 
 	apiServer := server.NewServer()
 

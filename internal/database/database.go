@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -45,6 +44,7 @@ var (
 )
 
 func Migrate() {
+	log.Println("Beginning Database Migration")
 	New() // Initialize database connection if not done already
 
 	driver, err := postgres.WithInstance(dbInstance.db, &postgres.Config{})
@@ -61,9 +61,10 @@ func Migrate() {
 	}
 
 	// Skip no change error
-	if err := m.Up(); !errors.Is(err, migrate.ErrNoChange) {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatal(err)
 	}
+	log.Println("Finished Database Migration")
 }
 
 func New() Service {
