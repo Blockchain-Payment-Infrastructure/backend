@@ -1,6 +1,7 @@
 package server
 
 import (
+	"backend/internal/api/handler"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -18,8 +19,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 	}))
 
 	r.GET("/", s.HelloWorldHandler)
-
 	r.GET("/health", s.healthHandler)
+
+	// Auth endpoints
+	auth := r.Group("/auth")
+	auth.POST("/signup", handler.SignUpHandler)
 
 	return r
 }

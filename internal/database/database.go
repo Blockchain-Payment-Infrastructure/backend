@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
@@ -28,6 +28,14 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+
+	// context-aware primitives
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+
+	// transactions
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 
 type service struct {
@@ -44,12 +52,13 @@ var (
 )
 
 func Migrate() {
-	log.Println("Beginning Database Migration")
+	slog.Info("Beginning Database Migration")
 	New() // Initialize database connection if not done already
 
 	driver, err := postgres.WithInstance(dbInstance.db, &postgres.Config{})
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("migration error:", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
@@ -57,14 +66,16 @@ func Migrate() {
 		"postgres", driver,
 	)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("migration error:", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	// Skip no change error
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		log.Fatal(err)
+		slog.Error("migration error:", slog.Any("error", err))
+		os.Exit(1)
 	}
-	log.Println("Finished Database Migration")
+	slog.Info("Finished Database Migration")
 }
 
 func New() Service {
@@ -80,7 +91,8 @@ func New() Service {
 
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("database connection error:", slog.Any("error", err))
+		os.Exit(1)
 	}
 	dbInstance = &service{
 		db: db,
@@ -101,8 +113,8 @@ func (s *service) Health() map[string]string {
 	if err != nil {
 		stats["status"] = "down"
 		stats["error"] = fmt.Sprintf("db down: %v", err)
-		log.Fatalf("db down: %v", err) // Log the error and terminate the program
-		return stats
+		slog.Error("db down:", slog.Any("error", err)) // Log the error and terminate the program
+		os.Exit(1)
 	}
 
 	// Database is up, add more statistics
@@ -144,6 +156,22 @@ func (s *service) Health() map[string]string {
 // If the connection is successfully closed, it returns nil.
 // If an error occurs while closing the connection, it returns the error.
 func (s *service) Close() error {
-	log.Printf("Disconnected from database: %s", database)
+	slog.Info("Disconnected from database:", slog.Any("info", database))
 	return s.db.Close()
+}
+
+func (s *service) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return s.db.ExecContext(ctx, query, args...)
+}
+
+func (s *service) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return s.db.QueryContext(ctx, query, args...)
+}
+
+func (s *service) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return s.db.QueryRowContext(ctx, query, args...)
+}
+
+func (s *service) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	return s.db.BeginTx(ctx, opts)
 }

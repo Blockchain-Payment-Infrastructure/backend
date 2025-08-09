@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -56,13 +56,13 @@ func mustStartPostgresContainer() (func(context.Context, ...testcontainers.Termi
 func TestMain(m *testing.M) {
 	teardown, err := mustStartPostgresContainer()
 	if err != nil {
-		log.Fatalf("could not start postgres container: %v", err)
+		slog.Error("could not start postgres container:", slog.Any("error", err))
 	}
 
 	m.Run()
 
 	if teardown != nil && teardown(context.Background()) != nil {
-		log.Fatalf("could not teardown postgres container: %v", err)
+		slog.Error("could not teardown postgres container:", slog.Any("error", err))
 	}
 }
 
