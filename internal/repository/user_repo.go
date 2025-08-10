@@ -4,6 +4,7 @@ import (
 	"backend/internal/database"
 	"backend/internal/model"
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -18,12 +19,19 @@ func CreateUser(ctx context.Context, user model.UserSignUp) error {
 		switch error.Code {
 		case "23505":
 			{
-				slog.Info(error.Error())
-				return ErrorUserExists
+				switch error.ConstraintName {
+				case "users_email_key":
+					return ErrorEmailExists
+				case "users_username_key":
+					return ErrorUsernameExists
+				default:
+					slog.Warn("Implement the following key violation:", slog.Any("violation", error.ConstraintName))
+					return errors.New("implement other key violations")
+				}
 			}
 		default:
 			{
-				slog.Error("c", slog.Any("error", err))
+				slog.Error("create user:", slog.Any("error", err))
 			}
 
 		}
