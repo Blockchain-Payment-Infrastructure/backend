@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -85,7 +86,7 @@ func TestValidatePassword(t *testing.T) {
 			if gotOK != tt.wantOK {
 				t.Errorf("ValidatePassword() gotOK = %v, want %v", gotOK, tt.wantOK)
 			}
-			if gotErr != tt.wantErr {
+			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("ValidatePassword() gotErr = %v, want %v", gotErr, tt.wantErr)
 			}
 		})
@@ -123,7 +124,7 @@ func TestComparePasswordAndHash(t *testing.T) {
 
 func TestComparePasswordAndHash_InvalidHashFormat(t *testing.T) {
 	_, err := ComparePasswordAndHash("pass", "invalidhash")
-	if err == nil || err != ErrInvalidHash {
+	if err == nil || !errors.Is(err, ErrInvalidHash) {
 		t.Fatalf("expected ErrInvalidHash, got %v", err)
 	}
 }
@@ -136,7 +137,7 @@ func TestComparePasswordAndHash_WrongVersion(t *testing.T) {
 	badHash := strings.Replace(hash, "v=19", "v=999", 1)
 
 	_, err := ComparePasswordAndHash(password, badHash)
-	if err == nil || err != ErrIncompatibleVersion {
+	if err == nil || !errors.Is(err, ErrIncompatibleVersion) {
 		t.Fatalf("expected ErrIncompatibleVersion, got %v", err)
 	}
 }
