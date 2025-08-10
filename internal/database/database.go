@@ -84,9 +84,9 @@ func New() Service {
 		return dbInstance
 	}
 	// ("pgx", "user=postgres password=secret host=localhost port=5432 database=pgx_test sslmode=disable")
-	connStr := fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s sslmode=require", username, password, host, port, database)
-	if os.Getenv("GIN_MODE") == gin.DebugMode {
-		connStr = fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s", username, password, host, port, database)
+	connStr := fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s", username, password, host, port, database)
+	if os.Getenv("GIN_MODE") == gin.ReleaseMode {
+		connStr = fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s sslmode=require", username, password, host, port, database)
 	}
 
 	db, err := sql.Open("pgx", connStr)

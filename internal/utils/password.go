@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -121,7 +120,6 @@ func ComparePasswordAndHash(password, encodedHash string) (match bool, err error
 	// hash.
 	p, salt, hash, err := decodeHash(encodedHash)
 	if err != nil {
-		slog.Error("compare password and hash:", slog.Any("error", err))
 		return false, err
 	}
 
