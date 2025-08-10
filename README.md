@@ -4,6 +4,17 @@
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
+Create a file `.env` with the following contents
+```
+DB_DATABASE=blockchainpay
+DB_PASSWORD=testing123
+DB_USERNAME=postgres
+DB_PORT=5432
+DB_HOST=localhost
+GIN_MODE=debug
+PORT=8080
+```
+
 ## MakeFile
 
 Run build make command with tests
