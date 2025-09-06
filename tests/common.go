@@ -16,7 +16,6 @@ func MustStartPostgresContainer() (func(context.Context, ...testcontainers.Termi
 	dbPwd := "password"
 
 	ctx := context.Background()
-
 	dbContainer, err := postgres.Run(
 		ctx,
 		"postgres:latest",

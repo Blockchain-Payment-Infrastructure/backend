@@ -87,6 +87,7 @@ func Migrate(migratePath string) {
 
 // Note: Once the New function is called with a particuar dbUrl for the first time, calling it again with any other dbUrl parameter won't change the connection
 // If during the first call the dbUrl argument is an empty string, it'll connect using the information available in the environment variables
+// Until and unless you call Close method on the db, and connect again with your new url (don't do that)
 func New(dbUrl string) Service {
 	if dbInstance != nil {
 		return dbInstance
@@ -117,8 +118,6 @@ func New(dbUrl string) Service {
 	return dbInstance
 }
 
-// Health checks the health of the database connection by pinging the database.
-// It returns a map with keys indicating various health statistics.
 func (s *service) Health() map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -168,12 +167,9 @@ func (s *service) Health() map[string]string {
 	return stats
 }
 
-// Close closes the database connection.
-// It logs a message indicating the disconnection from the specific database.
-// If the connection is successfully closed, it returns nil.
-// If an error occurs while closing the connection, it returns the error.
 func (s *service) Close() error {
-	slog.Info("Disconnected from database:", slog.Any("info", database))
+	slog.Info("Disconnected from database")
+	dbInstance = nil
 	return s.db.Close()
 }
 

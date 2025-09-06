@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,16 +16,10 @@ import (
 )
 
 func TestUserSignup(t *testing.T) {
-	r := gin.Default()
-
-	teardown, dsn, err := MustStartPostgresContainer()
-	if err != nil {
-		slog.Error("could not start postgres container:", slog.Any("error", err))
-	}
-
-	database.New(dsn)
+	database.New(testDSN)
 	database.Migrate("file://../db/migrations")
 
+	r := gin.Default()
 	auth := r.Group("/auth")
 	auth.POST("/signup", handler.SignUpHandler)
 
@@ -45,6 +38,7 @@ func TestUserSignup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
@@ -53,15 +47,17 @@ func TestUserSignup(t *testing.T) {
 		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 
-	expected := "{\"result\":\"account created successfully\"}"
+	expected := `{"result":"account created successfully"}`
 	if rr.Body.String() != expected {
 		t.Errorf("Handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
 	}
 
 	ctx := context.Background()
-	if exists, err := repository.UserExists(ctx, user.Email); err != nil && !exists {
+	exists, err := repository.UserExists(ctx, user.Email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
 		t.Fatal("User not found in database")
 	}
-
-	Cleanup(teardown)
 }
