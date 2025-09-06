@@ -51,9 +51,9 @@ var (
 	dbInstance *service
 )
 
-func Migrate() {
+func Migrate(migratePath string) {
 	slog.Info("Beginning Database Migration")
-	New() // Initialize database connection if not done already
+	New("") // Initialize database connection if not done already
 
 	driver, err := postgres.WithInstance(dbInstance.db, &postgres.Config{})
 	if err != nil {
@@ -62,9 +62,16 @@ func Migrate() {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://db/migrations",
+		migratePath,
 		"postgres", driver,
 	)
+	if len(migratePath) == 0 {
+		m, err = migrate.NewWithDatabaseInstance(
+			"file://db/migrations",
+			"postgres", driver,
+		)
+	}
+
 	if err != nil {
 		slog.Error("migration error:", slog.Any("error", err))
 		os.Exit(1)
@@ -78,25 +85,35 @@ func Migrate() {
 	slog.Info("Finished Database Migration")
 }
 
-func New() Service {
-	// Reuse Connection
+// Note: Once the New function is called with a particuar dbUrl for the first time, calling it again with any other dbUrl parameter won't change the connection
+// If during the first call the dbUrl argument is an empty string, it'll connect using the information available in the environment variables
+func New(dbUrl string) Service {
 	if dbInstance != nil {
 		return dbInstance
 	}
-	// ("pgx", "user=postgres password=secret host=localhost port=5432 database=pgx_test sslmode=disable")
-	connStr := fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s", username, password, host, port, database)
-	if os.Getenv("GIN_MODE") == gin.ReleaseMode {
-		connStr = fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s sslmode=require", username, password, host, port, database)
+
+	if dbUrl == "" {
+		user := os.Getenv("DB_USERNAME")
+		pass := os.Getenv("DB_PASSWORD")
+		host := os.Getenv("DB_HOST")
+		port := os.Getenv("DB_PORT")
+		dbName := os.Getenv("DB_DATABASE")
+
+		dbUrl = fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s",
+			user, pass, host, port, dbName)
+
+		if os.Getenv("GIN_MODE") == gin.ReleaseMode {
+			dbUrl += " sslmode=require"
+		}
 	}
 
-	db, err := sql.Open("pgx", connStr)
+	db, err := sql.Open("pgx", dbUrl)
 	if err != nil {
 		slog.Error("database connection error:", slog.Any("error", err))
 		os.Exit(1)
 	}
-	dbInstance = &service{
-		db: db,
-	}
+
+	dbInstance = &service{db: db}
 	return dbInstance
 }
 

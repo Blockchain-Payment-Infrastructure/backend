@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -11,15 +12,18 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func mustStartPostgresContainer() (func(context.Context, ...testcontainers.TerminateOption) error, error) {
-	var (
-		dbName = "database"
-		dbPwd  = "password"
-		dbUser = "user"
-	)
+var testDSN string
+
+// mustStartPostgresContainer starts a Postgres container and returns teardown func + DSN
+func mustStartPostgresContainer() (func(context.Context, ...testcontainers.TerminateOption) error, string, error) {
+	dbName := "database"
+	dbUser := "user"
+	dbPwd := "password"
+
+	ctx := context.Background()
 
 	dbContainer, err := postgres.Run(
-		context.Background(),
+		ctx,
 		"postgres:latest",
 		postgres.WithDatabase(dbName),
 		postgres.WithUsername(dbUser),
@@ -27,54 +31,50 @@ func mustStartPostgresContainer() (func(context.Context, ...testcontainers.Termi
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second)),
+				WithStartupTimeout(10*time.Second)),
 	)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	database = dbName
-	password = dbPwd
-	username = dbUser
-
-	dbHost, err := dbContainer.Host(context.Background())
+	// Build connection string (sslmode=disable to keep things simple)
+	connStr, err := dbContainer.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		return dbContainer.Terminate, err
+		return dbContainer.Terminate, "", err
 	}
 
-	dbPort, err := dbContainer.MappedPort(context.Background(), "5432/tcp")
-	if err != nil {
-		return dbContainer.Terminate, err
-	}
-
-	host = dbHost
-	port = dbPort.Port()
-
-	return dbContainer.Terminate, err
+	return dbContainer.Terminate, connStr, nil
 }
 
 func TestMain(m *testing.M) {
-	teardown, err := mustStartPostgresContainer()
+	teardown, dsn, err := mustStartPostgresContainer()
 	if err != nil {
 		slog.Error("could not start postgres container:", slog.Any("error", err))
+		os.Exit(1)
 	}
 
-	m.Run()
+	testDSN = dsn
 
-	if teardown != nil && teardown(context.Background()) != nil {
-		slog.Error("could not teardown postgres container:", slog.Any("error", err))
+	code := m.Run()
+
+	if teardown != nil {
+		if err := teardown(context.Background()); err != nil {
+			slog.Error("could not teardown postgres container:", slog.Any("error", err))
+		}
 	}
+
+	os.Exit(code)
 }
 
 func TestNew(t *testing.T) {
-	srv := New()
+	srv := New(testDSN)
 	if srv == nil {
 		t.Fatal("New() returned nil")
 	}
 }
 
 func TestHealth(t *testing.T) {
-	srv := New()
+	srv := New(testDSN)
 
 	stats := srv.Health()
 
@@ -92,7 +92,7 @@ func TestHealth(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	srv := New()
+	srv := New(testDSN)
 
 	if srv.Close() != nil {
 		t.Fatalf("expected Close() to return nil")
