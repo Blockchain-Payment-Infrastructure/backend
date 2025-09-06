@@ -1,9 +1,11 @@
-package utils
+package tests
 
 import (
 	"errors"
 	"strings"
 	"testing"
+
+	"backend/internal/utils"
 )
 
 func TestValidatePassword(t *testing.T) {
@@ -23,13 +25,13 @@ func TestValidatePassword(t *testing.T) {
 			name:     "non-ASCII characters",
 			password: "Abcdef!😊",
 			wantOK:   false,
-			wantErr:  ErrorInvalidCharactersInPassword,
+			wantErr:  utils.ErrorInvalidCharactersInPassword,
 		},
 		{
 			name:     "too short",
 			password: "Ab1!",
 			wantOK:   false,
-			wantErr:  ErrorShortPassword,
+			wantErr:  utils.ErrorShortPassword,
 		},
 		{
 			name:     "password exactly at max length",
@@ -41,48 +43,48 @@ func TestValidatePassword(t *testing.T) {
 			name:     "password exceeding max length",
 			password: "Aa1!" + strings.Repeat("a", 69),
 			wantOK:   false,
-			wantErr:  ErrorPasswordTooLong,
+			wantErr:  utils.ErrorPasswordTooLong,
 		},
 		{
 			name:     "missing special character",
 			password: "Abcdefgh",
 			wantOK:   false,
-			wantErr:  ErrorNotEnoughSpecialCharacters,
+			wantErr:  utils.ErrorNotEnoughSpecialCharacters,
 		},
 		{
 			name:     "missing uppercase character",
 			password: "abcdefg!",
 			wantOK:   false,
-			wantErr:  ErrorNotEnoughUpperCaseCharacters,
+			wantErr:  utils.ErrorNotEnoughUpperCaseCharacters,
 		},
 		{
 			name:     "missing lowercase character",
 			password: "ABCDEFG!",
 			wantOK:   false,
-			wantErr:  ErrorNotEnoughLowerCaseCharacters,
+			wantErr:  utils.ErrorNotEnoughLowerCaseCharacters,
 		},
 		{
 			name:     "missing digit",
 			password: "Abcdefg!",
 			wantOK:   false,
-			wantErr:  ErrorNotEnoughDigits,
+			wantErr:  utils.ErrorNotEnoughDigits,
 		}, {
 			name:     "contains bell control character",
 			password: "Aa1!fiwurgireg" + string(rune(7)),
 			wantOK:   false,
-			wantErr:  ErrorInvalidCharactersInPassword,
+			wantErr:  utils.ErrorInvalidCharactersInPassword,
 		},
 		{
 			name:     "contains DEL character",
 			password: "Aa1!agataega" + string(rune(127)),
 			wantOK:   false,
-			wantErr:  ErrorInvalidCharactersInPassword,
+			wantErr:  utils.ErrorInvalidCharactersInPassword,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotOK, gotErr := ValidatePassword(tt.password)
+			gotOK, gotErr := utils.ValidatePassword(tt.password)
 			if gotOK != tt.wantOK {
 				t.Errorf("ValidatePassword() gotOK = %v, want %v", gotOK, tt.wantOK)
 			}
@@ -94,17 +96,17 @@ func TestValidatePassword(t *testing.T) {
 }
 
 func TestComparePasswordAndHash(t *testing.T) {
-	password := "StrongP@ssw0rd"
+	pWord := "StrongP@ssw0rd"
 
 	// Hash the password
-	hash := HashPassword(password)
+	hash := utils.HashPassword(pWord)
 
 	if !strings.HasPrefix(hash, "$argon2id$") {
 		t.Fatalf("expected hash to start with $argon2id$, got %s", hash)
 	}
 
 	// Compare with the correct password
-	match, err := ComparePasswordAndHash(password, hash)
+	match, err := utils.ComparePasswordAndHash(pWord, hash)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -113,7 +115,7 @@ func TestComparePasswordAndHash(t *testing.T) {
 	}
 
 	// Compare with wrong password
-	match, err = ComparePasswordAndHash("WrongPassword123", hash)
+	match, err = utils.ComparePasswordAndHash("WrongPassword123", hash)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -123,28 +125,28 @@ func TestComparePasswordAndHash(t *testing.T) {
 }
 
 func TestComparePasswordAndHash_InvalidHashFormat(t *testing.T) {
-	_, err := ComparePasswordAndHash("pass", "invalidhash")
-	if err == nil || !errors.Is(err, ErrInvalidHash) {
+	_, err := utils.ComparePasswordAndHash("pass", "invalidhash")
+	if err == nil || !errors.Is(err, utils.ErrInvalidHash) {
 		t.Fatalf("expected ErrInvalidHash, got %v", err)
 	}
 }
 
 func TestComparePasswordAndHash_WrongVersion(t *testing.T) {
-	password := "StrongP@ssw0rd"
-	hash := HashPassword(password)
+	pWord := "StrongP@ssw0rd"
+	hash := utils.HashPassword(pWord)
 
 	// Tamper with version number in hash
 	badHash := strings.Replace(hash, "v=19", "v=999", 1)
 
-	_, err := ComparePasswordAndHash(password, badHash)
-	if err == nil || !errors.Is(err, ErrIncompatibleVersion) {
+	_, err := utils.ComparePasswordAndHash(pWord, badHash)
+	if err == nil || !errors.Is(err, utils.ErrIncompatibleVersion) {
 		t.Fatalf("expected ErrIncompatibleVersion, got %v", err)
 	}
 }
 
 func TestComparePasswordAndHash_CorruptedSalt(t *testing.T) {
-	password := "StrongP@ssw0rd"
-	hash := HashPassword(password)
+	pWord := "StrongP@ssw0rd"
+	hash := utils.HashPassword(pWord)
 
 	parts := strings.Split(hash, "$")
 	if len(parts) != 6 {
@@ -155,15 +157,15 @@ func TestComparePasswordAndHash_CorruptedSalt(t *testing.T) {
 	parts[4] = "!!!invalid_base64$$$"
 	badHash := strings.Join(parts, "$")
 
-	_, err := ComparePasswordAndHash(password, badHash)
+	_, err := utils.ComparePasswordAndHash(pWord, badHash)
 	if err == nil {
 		t.Fatalf("expected error for corrupted salt")
 	}
 }
 
 func TestComparePasswordAndHash_CorruptedHash(t *testing.T) {
-	password := "StrongP@ssw0rd"
-	hash := HashPassword(password)
+	pWord := "StrongP@ssw0rd"
+	hash := utils.HashPassword(pWord)
 
 	parts := strings.Split(hash, "$")
 	if len(parts) != 6 {
@@ -174,7 +176,7 @@ func TestComparePasswordAndHash_CorruptedHash(t *testing.T) {
 	parts[5] = "###bad_base64###"
 	badHash := strings.Join(parts, "$")
 
-	_, err := ComparePasswordAndHash(password, badHash)
+	_, err := utils.ComparePasswordAndHash(pWord, badHash)
 	if err == nil {
 		t.Fatalf("expected error for corrupted hash")
 	}

@@ -49,14 +49,10 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	database.Migrate()
+	database.Migrate("")
 
 	apiServer := server.NewServer()
-
-	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
-
-	// Run graceful shutdown in a separate goroutine
 	go gracefulShutdown(apiServer, done)
 
 	err := apiServer.ListenAndServe()
@@ -64,7 +60,6 @@ func main() {
 		panic(fmt.Sprintf("http apiServer error: %s", err))
 	}
 
-	// Wait for the graceful shutdown to complete
 	<-done
 	slog.Info("Graceful shutdown complete.")
 }
