@@ -1,3 +1,4 @@
+// File: backend/internal/database/database.go (MODIFIED FOR POSTGRES & GETRAWDB)
 package database
 
 import (
@@ -12,10 +13,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/database/postgres" // PostgreSQL specific
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -28,6 +29,9 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+
+	// ADDED: Method to get the raw *sql.DB connection
+	GetRawDB() *sql.DB // <--- ADDED THIS
 
 	// context-aware primitives
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
@@ -43,17 +47,17 @@ type service struct {
 }
 
 var (
-	database   = os.Getenv("DB_DATABASE")
-	password   = os.Getenv("DB_PASSWORD")
-	username   = os.Getenv("DB_USERNAME")
-	port       = os.Getenv("DB_PORT")
-	host       = os.Getenv("DB_HOST")
-	dbInstance *service
+	// Removed global database connection details variables as they're now handled in New()
+	dbInstance *service // Keep this for your singleton pattern
 )
 
 func Migrate(migratePath string) {
 	slog.Info("Beginning Database Migration")
-	New("") // Initialize database connection if not done already
+	// Ensure the DB instance is available for migrations
+	if dbInstance == nil {
+		slog.Error("Database service not initialized before migration. Call database.New() first.")
+		os.Exit(1)
+	}
 
 	driver, err := postgres.WithInstance(dbInstance.db, &postgres.Config{})
 	if err != nil {
@@ -62,10 +66,10 @@ func Migrate(migratePath string) {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		migratePath,
+		migratePath, // Use the provided path directly
 		"postgres", driver,
 	)
-	if len(migratePath) == 0 {
+	if len(migratePath) == 0 { // Fallback if migratePath is empty
 		m, err = migrate.NewWithDatabaseInstance(
 			"file://db/migrations",
 			"postgres", driver,
@@ -77,7 +81,6 @@ func Migrate(migratePath string) {
 		os.Exit(1)
 	}
 
-	// Skip no change error
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		slog.Error("migration error:", slog.Any("error", err))
 		os.Exit(1)
@@ -85,14 +88,14 @@ func Migrate(migratePath string) {
 	slog.Info("Finished Database Migration")
 }
 
-// Note: Once the New function is called with a particuar dbUrl for the first time, calling it again with any other dbUrl parameter won't change the connection
-// If during the first call the dbUrl argument is an empty string, it'll connect using the information available in the environment variables
-// Until and unless you call Close method on the db, and connect again with your new url (don't do that)
+// New connects to the database. It now takes a dbUrl, if empty it uses environment variables.
+// It acts as a singleton.
 func New(dbUrl string) Service {
-	if dbInstance != nil {
+	if dbInstance != nil && dbInstance.db != nil { // Ensure DB connection is actually open
 		return dbInstance
 	}
 
+	// If dbUrl is empty, construct it from environment variables
 	if dbUrl == "" {
 		user := os.Getenv("DB_USERNAME")
 		pass := os.Getenv("DB_PASSWORD")
@@ -100,23 +103,43 @@ func New(dbUrl string) Service {
 		port := os.Getenv("DB_PORT")
 		dbName := os.Getenv("DB_DATABASE")
 
-		dbUrl = fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s",
+		dbUrl = fmt.Sprintf("user=%s password=%s host=%s port=%s dbname=%s",
 			user, pass, host, port, dbName)
 
 		if os.Getenv("GIN_MODE") == gin.ReleaseMode {
 			dbUrl += " sslmode=require"
+		} else {
+			dbUrl += " sslmode=disable" // Often needed for local dev with PG
 		}
 	}
 
-	db, err := sql.Open("pgx", dbUrl)
+	db, err := sql.Open("pgx", dbUrl) // Use "pgx" driver for PostgreSQL
 	if err != nil {
 		slog.Error("database connection error:", slog.Any("error", err))
 		os.Exit(1)
 	}
 
+	// Ping the database to verify the connection is alive
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = db.PingContext(ctx)
+	if err != nil {
+		slog.Error("database ping failed:", slog.Any("error", err))
+		db.Close() // Close the connection if ping fails
+		os.Exit(1)
+	}
+	slog.Info("Database connection successful!")
+
+
 	dbInstance = &service{db: db}
 	return dbInstance
 }
+
+// ADDED: GetRawDB method for the service struct
+func (s *service) GetRawDB() *sql.DB {
+	return s.db
+}
+
 
 func (s *service) Health() map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -124,20 +147,17 @@ func (s *service) Health() map[string]string {
 
 	stats := make(map[string]string)
 
-	// Ping the database
 	err := s.db.PingContext(ctx)
 	if err != nil {
 		stats["status"] = "down"
 		stats["error"] = fmt.Sprintf("db down: %v", err)
-		slog.Error("db down:", slog.Any("error", err)) // Log the error and terminate the program
+		slog.Error("db down:", slog.Any("error", err))
 		os.Exit(1)
 	}
 
-	// Database is up, add more statistics
 	stats["status"] = "up"
 	stats["message"] = "It's healthy"
 
-	// Get database stats (like open connections, in use, idle, etc.)
 	dbStats := s.db.Stats()
 	stats["open_connections"] = strconv.Itoa(dbStats.OpenConnections)
 	stats["in_use"] = strconv.Itoa(dbStats.InUse)
@@ -147,19 +167,15 @@ func (s *service) Health() map[string]string {
 	stats["max_idle_closed"] = strconv.FormatInt(dbStats.MaxIdleClosed, 10)
 	stats["max_lifetime_closed"] = strconv.FormatInt(dbStats.MaxLifetimeClosed, 10)
 
-	// Evaluate stats to provide a health message
-	if dbStats.OpenConnections > 40 { // Assuming 50 is the max for this example
+	if dbStats.OpenConnections > 40 {
 		stats["message"] = "The database is experiencing heavy load."
 	}
-
 	if dbStats.WaitCount > 1000 {
 		stats["message"] = "The database has a high number of wait events, indicating potential bottlenecks."
 	}
-
 	if dbStats.MaxIdleClosed > int64(dbStats.OpenConnections)/2 {
 		stats["message"] = "Many idle connections are being closed, consider revising the connection pool settings."
 	}
-
 	if dbStats.MaxLifetimeClosed > int64(dbStats.OpenConnections)/2 {
 		stats["message"] = "Many connections are being closed due to max lifetime, consider increasing max lifetime or revising the connection usage pattern."
 	}
@@ -169,6 +185,7 @@ func (s *service) Health() map[string]string {
 
 func (s *service) Close() error {
 	slog.Info("Disconnected from database")
+	// Clear the singleton instance upon closing
 	dbInstance = nil
 	return s.db.Close()
 }
