@@ -9,6 +9,19 @@ build:
 	
 	@go build -o main cmd/api/main.go
 
+# Build the documentation
+docs:
+	@echo "Building docs..."
+
+	@swag init -g cmd/api/main.go
+
+# Remove old documentation
+clean-docs:
+	@echo "Cleaning old docs..."
+
+	rm docs/swagger.json
+	rm docs/swagger.yaml
+
 # Run the application
 run:
 	@go run cmd/api/main.go
@@ -61,4 +74,4 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch docker-run docker-down itest
+.PHONY: all build run test clean watch docker-run docker-down itest docs clean-docs
