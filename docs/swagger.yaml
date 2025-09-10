@@ -1,0 +1,60 @@
+basePath: /
+definitions:
+  model.UserSignUp:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API documentation for the blockchain backend payment system
+  title: Backend API
+  version: "1.0"
+paths:
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account after validating username, email, and
+        password
+      parameters:
+      - description: User sign up details
+        in: body
+        name: userDetails
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserSignUp'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Account created successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Validation error or bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: User Sign Up
+      tags:
+      - auth
+swagger: "2.0"
