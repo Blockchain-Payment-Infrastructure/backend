@@ -1,10 +1,7 @@
-// File: backend/internal/server/routes.go (MODIFIED to inject DB into service layer)
 package server
 
 import (
 	"backend/internal/api/handler"
-	"backend/internal/middleware"
-	"backend/internal/service" // <--- Import your service package
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -24,22 +21,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/", s.HelloWorldHandler)
 	r.GET("/health", s.healthHandler)
 
-	// --- Inject DB service into handler and service layers ---
-	handler.SetDBService(s.db)
-	service.SetDBService(s.db) // <--- NEW: Inject DB service into your service package
-
 	auth := r.Group("/auth")
 	{
 		auth.POST("/signup", handler.SignUpHandler)
 		auth.POST("/login", handler.LoginHandler)
-	}
-
-	protected := r.Group("/api")
-	protected.Use(middleware.AuthMiddleware())
-	{
-		protected.GET("/dashboard", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"message": "Welcome to your secure dashboard!"})
-		})
 	}
 
 	return r

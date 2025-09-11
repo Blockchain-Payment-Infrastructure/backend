@@ -1,12 +1,10 @@
-// File: backend/internal/middleware/auth.go
 package middleware
 
 import (
+	"backend/internal/utils"
 	"log/slog"
 	"net/http"
 	"strings"
-
-	"backend/internal/api/handler" // IMPORTANT: Changed import path to YOUR handler package
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -29,8 +27,8 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		token, err := jwt.Parse(parts[1], func(token *jwt.Token) (interface{}, error) {
-			return handler.JwtSecretKey, nil // Use the JwtSecretKey from YOUR handler package
+		token, err := jwt.Parse(parts[1], func(token *jwt.Token) (any, error) {
+			return utils.JwtSecretKey, nil
 		})
 
 		if err != nil || !token.Valid {
