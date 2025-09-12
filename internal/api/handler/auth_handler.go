@@ -3,6 +3,7 @@ package handler
 import (
 	"backend/internal/model"
 	"backend/internal/service"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -33,4 +34,22 @@ func SignUpHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"result": "account created successfully"})
+}
+
+func LoginHandler(c *gin.Context) {
+	var loginDetails model.UserLogin
+
+	if err := c.ShouldBindJSON(&loginDetails); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	token, err := service.LoginService(c, loginDetails)
+	if err != nil {
+		slog.Error(err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Login successful!", "token": token})
 }
