@@ -1,12 +1,24 @@
 basePath: /
 definitions:
-  model.UserSignUp:
+  model.UserLogin:
     properties:
       email:
         type: string
       password:
         type: string
+    type: object
+  model.UserSignUp:
+    properties:
+      email:
+        description: Added email validation
+        type: string
+      password:
+        description: Added min length for password
+        minLength: 8
+        type: string
       username:
+        description: Added min length
+        minLength: 3
         type: string
     required:
     - email
@@ -20,6 +32,36 @@ info:
   title: Backend API
   version: "1.0"
 paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Logs the user in and returns a jwt token
+      parameters:
+      - description: User logindetails
+        in: body
+        name: loginDetails
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserLogin'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful!
+          schema:
+            type: string
+        "400":
+          description: Validation error
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: User Login
+      tags:
+      - auth
   /auth/signup:
     post:
       consumes:
