@@ -18,11 +18,11 @@ func CreateUser(ctx context.Context, user model.UserSignUp) error {
 	db := database.New("")
 
 	query := `
-		INSERT INTO users (id, username, email, password_hash, created_at)
-		VALUES ($1, $2, $3, $4, now())
+		INSERT INTO users (id, username, email, phone_number, password_hash, created_at)
+		VALUES ($1, $2, $3, $4, $5, now())
 	`
 
-	_, err := db.ExecContext(ctx, query, uuid.New(), user.Username, user.Email, user.Password)
+	_, err := db.ExecContext(ctx, query, uuid.New(), user.Username, user.Email, user.PhoneNumber, user.Password)
 	if err != nil {
 		// check if it's a Postgres error
 		var pgErr *pgconn.PgError
@@ -34,6 +34,8 @@ func CreateUser(ctx context.Context, user model.UserSignUp) error {
 					return ErrorEmailExists
 				case "users_username_key":
 					return ErrorUsernameExists
+				case "users_phone_number_key":
+					return ErrorPhoneNumberExists
 				default:
 					slog.Warn("Unhandled unique violation:",
 						slog.String("constraint", pgErr.ConstraintName))
@@ -69,9 +71,9 @@ func FindUserByEmail(email string) (*model.User, error) {
 		return nil, gin.Error{Err: nil, Type: gin.ErrorTypePrivate, Meta: "Raw database connection unavailable"}
 	}
 
-	query := "SELECT id, email, username, password_hash FROM users WHERE email = $1"
+	query := "SELECT id, email, username, phone_number, password_hash FROM users WHERE email = $1"
 	row := rawDB.QueryRowContext(context.Background(), query, email)
-	err := row.Scan(&user.ID, &user.Email, &user.Username, &user.HashedPassword)
+	err := row.Scan(&user.ID, &user.Email, &user.Username, &user.PhoneNumber, &user.HashedPassword)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, gin.Error{Err: err, Type: gin.ErrorTypePrivate, Meta: "User not found"}

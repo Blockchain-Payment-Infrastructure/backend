@@ -7,7 +7,8 @@ import "github.com/google/uuid"
 type UserSignUp struct {
 	Email    string `json:"email" binding:"required,email"`    // Added email validation
 	Username string `json:"username" binding:"required,min=3"` // Added min length
-	Password string `json:"password" binding:"required,min=8"` // Added min length for password
+	PhoneNumber string `json:"phone_number" binding:"required,e164"`
+	Password string `json:"password" binding:"required,min=8"` // Added min length for password	
 }
 
 // User represents the structure of a user as stored in the database.
@@ -16,6 +17,7 @@ type User struct {
 	ID             uuid.UUID `json:"id"`
 	Email          string    `json:"email"`
 	Username       string    `json:"username"`
+	PhoneNumber    string `json:"phone_number"`
 	HashedPassword string    `json:"-"` // Store the hashed password, omit from JSON output
 }
 

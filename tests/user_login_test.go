@@ -23,9 +23,10 @@ func TestUserLogin(t *testing.T) {
 	auth.POST("/login", handler.LoginHandler)
 
 	user := model.UserSignUp{
-		Email:    "testing@abcde.com",
-		Username: "testings",
-		Password: "H*mUhZ655mJo$$@Ka",
+		Email:       "testing@abcde.com",
+		Username:    "testings",
+		PhoneNumber: "+12345678901",
+		Password:    "H*mUhZ655mJo$$@Ka",
 	}
 
 	userJSON, err := json.Marshal(user)

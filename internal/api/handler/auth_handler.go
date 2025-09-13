@@ -12,7 +12,7 @@ import (
 // SignUpHandler godoc
 //
 //	@Summary		User Sign Up
-//	@Description	Creates a new user account after validating username, email, and password
+//	@Description	Creates a new user account after validating username, email, phoneNumber and password
 //	@Tags			auth
 //	@Accept			json
 //	@Produce		json
