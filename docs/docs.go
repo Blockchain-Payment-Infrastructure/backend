@@ -15,6 +15,52 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/auth/login": {
+            "post": {
+                "description": "Logs the user in and returns a jwt token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "User Login",
+                "parameters": [
+                    {
+                        "description": "User logindetails",
+                        "name": "loginDetails",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UserLogin"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Login successful!",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/signup": {
             "post": {
                 "description": "Creates a new user account after validating username, email, and password",
@@ -63,6 +109,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "model.UserLogin": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
         "model.UserSignUp": {
             "type": "object",
             "required": [
@@ -72,13 +129,18 @@ const docTemplate = `{
             ],
             "properties": {
                 "email": {
+                    "description": "Added email validation",
                     "type": "string"
                 },
                 "password": {
-                    "type": "string"
+                    "description": "Added min length for password",
+                    "type": "string",
+                    "minLength": 8
                 },
                 "username": {
-                    "type": "string"
+                    "description": "Added min length",
+                    "type": "string",
+                    "minLength": 3
                 }
             }
         }
