@@ -43,7 +43,7 @@ func SignUpHandler(c *gin.Context) {
 //	@Tags			auth
 //	@Accept			json
 //	@Produce		json
-//	@Param			loginDetails	body		model.UserLogin	true	"User logindetails"
+//	@Param			loginDetails	body		model.UserLogin	true	"User login details"
 //	@Success		200				{string}	string			"Login successful!"
 //	@Failure		400				{string}	string			"Validation error"
 //	@Failure		500				{string}	string			"Internal server error"
