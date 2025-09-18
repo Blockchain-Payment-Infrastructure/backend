@@ -2,6 +2,7 @@ package server
 
 import (
 	"backend/internal/api/handler"
+	"backend/internal/middleware"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -25,6 +26,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 	{
 		auth.POST("/signup", handler.SignUpHandler)
 		auth.POST("/login", handler.LoginHandler)
+	}
+
+	wallet := r.Group("/wallet")
+
+	wallet.Use(middleware.AuthMiddleware())
+	{
+		wallet.GET("/addresses", handler.WalletAddressFromPhoneHandler)
 	}
 
 	return r
