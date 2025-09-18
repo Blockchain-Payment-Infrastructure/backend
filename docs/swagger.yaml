@@ -21,9 +21,9 @@ definitions:
         minLength: 3
         type: string
     required:
-    - email
-    - password
-    - username
+      - email
+      - password
+      - username
     type: object
 host: localhost:8080
 info:
@@ -35,17 +35,17 @@ paths:
   /auth/login:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Logs the user in and returns a jwt token
       parameters:
-      - description: User logindetails
-        in: body
-        name: loginDetails
-        required: true
-        schema:
-          $ref: '#/definitions/model.UserLogin'
+        - description: User logindetails
+          in: body
+          name: loginDetails
+          required: true
+          schema:
+            $ref: "#/definitions/model.UserLogin"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: Login successful!
@@ -61,22 +61,23 @@ paths:
             type: string
       summary: User Login
       tags:
-      - auth
+        - auth
   /auth/signup:
     post:
       consumes:
-      - application/json
-      description: Creates a new user account after validating username, email, and
+        - application/json
+      description:
+        Creates a new user account after validating username, email, and
         password
       parameters:
-      - description: User sign up details
-        in: body
-        name: userDetails
-        required: true
-        schema:
-          $ref: '#/definitions/model.UserSignUp'
+        - description: User sign up details
+          in: body
+          name: userDetails
+          required: true
+          schema:
+            $ref: "#/definitions/model.UserSignUp"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Account created successfully
@@ -92,5 +93,5 @@ paths:
             type: string
       summary: User Sign Up
       tags:
-      - auth
+        - auth
 swagger: "2.0"

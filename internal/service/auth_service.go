@@ -51,6 +51,7 @@ func LoginService(c *gin.Context, loginDetails model.UserLogin) (string, error) 
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error during password verification"})
 		return "", err
 	}
+
 	if !match {
 		slog.Warn("Login failed for email (password mismatch)", slog.String("email", loginDetails.Email))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
