@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/alexedwards/argon2id"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,14 +36,14 @@ func SignUpService(c *gin.Context, userDetails model.UserSignUp) error {
 }
 
 func LoginService(c *gin.Context, loginDetails model.UserLogin) (string, error) {
-	user, err := repository.FindUserByEmail(loginDetails.Email)
+	user, err := repository.FindUserByEmail(c, loginDetails.Email)
 	if err != nil {
 		slog.Warn("Login failed for email (user not found/db error)", slog.String("email", loginDetails.Email), slog.Any("error", err))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return "", err
 	}
 
-	match, err := argon2id.ComparePasswordAndHash(loginDetails.Password, user.HashedPassword)
+	match, err := utils.ComparePasswordAndHash(loginDetails.Password, user.HashedPassword)
 	if err != nil {
 		// Handle error (e.g., hash format is invalid, unexpected issue)
 		slog.Error("Error comparing password and hash", slog.Any("error", err))

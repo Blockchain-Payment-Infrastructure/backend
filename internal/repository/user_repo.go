@@ -62,7 +62,7 @@ func UserExists(ctx context.Context, email string) (bool, error) {
 	return count > 0, err
 }
 
-func FindUserByEmail(email string) (*model.User, error) {
+func FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
 	user := &model.User{}
 
 	rawDB := database.New("")
@@ -72,7 +72,7 @@ func FindUserByEmail(email string) (*model.User, error) {
 	}
 
 	query := "SELECT id, email, username, phone_number, password_hash FROM users WHERE email = $1"
-	row := rawDB.QueryRowContext(context.Background(), query, email)
+	row := rawDB.QueryRowContext(ctx, query, email)
 	err := row.Scan(&user.ID, &user.Email, &user.Username, &user.PhoneNumber, &user.HashedPassword)
 	if err != nil {
 		if err == sql.ErrNoRows {
