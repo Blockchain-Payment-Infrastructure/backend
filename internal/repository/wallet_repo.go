@@ -43,35 +43,38 @@ func GetWalletAddressesFromPhone(ctx context.Context, phone string) ([]model.Wal
 
 	return addresses, nil
 }
-func GetPhoneNumberByUserID(userID int) (string, error) {
-	var phoneNumber string
 
-	// We assume 'db' is your global or passed-in database connection object.
-	// Replace with your actual database query logic.
+func GetPhoneNumberByUserID(ctx context.Context, userID string) (string, error) {
 	db := database.New("")
-	query := "SELECT phone_number FROM users WHERE id = ?"
-	err := db.QueryRowContext(context.Background(), query, userID).Scan(&phoneNumber)
+
+	var phoneNumber string
+	query := "SELECT phone_number FROM users WHERE id = $1;"
+	err := db.QueryRowContext(ctx, query, userID).Scan(&phoneNumber)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("user with ID %d not found", userID)
+			return "", fmt.Errorf("user with ID %v not found", userID)
 		}
+
 		return "", fmt.Errorf("database query error: %w", err)
 	}
+
 	return phoneNumber, nil
 }
-func InsertWalletAddressPhone(walletAddress, phoneNumber string) error {
+
+func InsertWalletAddressPhone(ctx context.Context, walletAddress, phoneNumber string) error {
 	db := database.New("")
 	query := `
 		INSERT INTO wallet_address_phone (wallet_address, phone_number) 
-		VALUES (?, ?)
+		VALUES ($1, $2)
 	`
-	_, err := db.ExecContext(context.Background(), query, walletAddress, phoneNumber)
+	_, err := db.ExecContext(ctx, query, walletAddress, phoneNumber)
 	if err != nil {
-
 		if strings.Contains(err.Error(), "Duplicate entry") {
 			return fmt.Errorf("wallet address already exists")
 		}
+
 		return fmt.Errorf("database insert error: %w", err)
 	}
+
 	return nil
 }

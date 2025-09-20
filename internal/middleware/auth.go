@@ -45,7 +45,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Example: get user_id
 		if userID, exists := claims["user_id"].(string); exists {
 			c.Set("userID", userID)
 		} else {

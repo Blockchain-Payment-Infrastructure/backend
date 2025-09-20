@@ -33,6 +33,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	wallet.Use(middleware.AuthMiddleware())
 	{
 		wallet.GET("/addresses/:phone_number", handler.WalletAddressFromPhoneHandler)
+		wallet.POST("/connect", handler.ConnectWalletHandler)
 	}
 
 	return r

@@ -1,10 +1,9 @@
 package handler
 
 import (
+	"backend/internal/model"
 	"backend/internal/repository"
 	"backend/internal/service"
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -31,71 +30,70 @@ func WalletAddressFromPhoneHandler(c *gin.Context) {
 	}
 }
 
-type ConnectWalletRequest struct {
-	Message   string `json:"message"`
-	Signature string `json:"signature"`
-}
-
-func getUserIdFromContext(ctx context.Context) int {
-	if id, ok := ctx.Value("userID").(int); ok {
-		return id
-	}
-	return 0
-}
-func ConnectWalletHandler(w http.ResponseWriter, r *http.Request) {
-	userID := getUserIdFromContext(r.Context())
-	if userID == 0 {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+func ConnectWalletHandler(c *gin.Context) {
+	id, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	var req ConnectWalletRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+	userID, ok := id.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+		return
+	}
+
+	var req model.ConnectWalletRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
 	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(req.Message), req.Message)
 	messageHash := crypto.Keccak256Hash([]byte(prefixedMessage))
+
 	sig, err := hexutil.Decode(req.Signature)
 	if err != nil {
-		http.Error(w, "Invalid signature format", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid signature format"})
 		return
 	}
+
+	// Adjust recovery ID
 	if sig[64] == 27 || sig[64] == 28 {
 		sig[64] -= 27
 	}
 
-	pubKey, err := crypto.Ecrecover(messageHash.Bytes(), sig)
+	pubKeyBytes, err := crypto.Ecrecover(messageHash.Bytes(), sig)
 	if err != nil {
-		http.Error(w, "Signature verification failed", http.StatusUnauthorized)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Signature verification failed"})
 		return
 	}
 
-	ecdsaPubKey, err := crypto.UnmarshalPubkey(pubKey)
+	ecdsaPubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 	if err != nil {
-		http.Error(w, "Failed to unmarshal public key", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to unmarshal public key"})
 		return
 	}
+
 	recoveredAddr := crypto.PubkeyToAddress(*ecdsaPubKey).Hex()
-	phoneNumber, err := repository.GetPhoneNumberByUserID(userID)
+
+	phoneNumber, err := repository.GetPhoneNumberByUserID(c, userID)
 	if err != nil {
-		// Handle case where phone number can't be found
-		http.Error(w, "User's phone number not found", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User's phone number not found"})
 		return
 	}
-	err = repository.InsertWalletAddressPhone(recoveredAddr, phoneNumber)
+
+	err = repository.InsertWalletAddressPhone(c, recoveredAddr, phoneNumber)
 	if err != nil {
 		if err.Error() == "wallet address already exists" {
-			http.Error(w, "This wallet is already linked to an account", http.StatusConflict)
+			c.JSON(http.StatusConflict, gin.H{"error": "This wallet is already linked to an account"})
 			return
 		}
-		http.Error(w, "Failed to connect wallet", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect wallet"})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	c.JSON(http.StatusOK, gin.H{
 		"success":       true,
 		"walletAddress": recoveredAddr,
 		"message":       "Wallet successfully connected!",

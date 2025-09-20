@@ -7,3 +7,8 @@ type WalletAddress struct {
 type PhoneNumber struct {
 	Phone string `json:"phone_number"`
 }
+
+type ConnectWalletRequest struct {
+	Message   string `json:"message"`
+	Signature string `json:"signature"`
+}
