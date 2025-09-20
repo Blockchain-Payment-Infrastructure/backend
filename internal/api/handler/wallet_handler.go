@@ -1,23 +1,24 @@
 package handler
 
 import (
-	"backend/internal/model"
 	"backend/internal/service"
-	"log/slog"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-func WalletAddressFromPhoneHandler(c *gin.Context) {
-	var phoneNumber model.PhoneNumber
+var (
+	ErrorInvalidPhoneNumber = errors.New("invalid phone number")
+)
 
-	if err := c.BindJSON(&phoneNumber); err != nil {
-		slog.Error("Binding error", slog.Any("error", err.Error()))
-		return
+func WalletAddressFromPhoneHandler(c *gin.Context) {
+	phoneNumber := c.Param("phone_number")
+	if len(phoneNumber) != 10 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": ErrorInvalidPhoneNumber})
 	}
 
-	if addresses, err := service.GetWalletAddressFromPhone(c, phoneNumber.Phone); err == nil {
+	if addresses, err := service.GetWalletAddressFromPhone(c, phoneNumber); err == nil {
 		c.JSON(http.StatusOK, addresses)
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

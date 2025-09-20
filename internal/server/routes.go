@@ -13,7 +13,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:8081"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -32,7 +32,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	wallet.Use(middleware.AuthMiddleware())
 	{
-		wallet.GET("/addresses", handler.WalletAddressFromPhoneHandler)
+		wallet.GET("/addresses/:phone_number", handler.WalletAddressFromPhoneHandler)
 	}
 
 	return r
