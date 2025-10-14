@@ -5,8 +5,8 @@ all: build test
 
 build:
 	@echo "Building..."
-	
-	
+
+
 	@go build -o main cmd/api/main.go
 
 # Build the documentation
@@ -46,7 +46,7 @@ docker-down:
 # Test the application
 test:
 	@echo "Testing..."
-	@go test ./tests -v
+	@GIN_MODE=test go test ./tests -v
 # Integrations Tests for the application
 itest:
 	@echo "Running integration tests..."

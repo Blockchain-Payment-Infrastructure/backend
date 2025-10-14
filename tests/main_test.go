@@ -20,6 +20,8 @@ func TestMain(m *testing.M) {
 	}))
 	slog.SetDefault(logger)
 
+	os.Setenv("GIN_MODE", "test")
+
 	teardown, dsn, err := MustStartPostgresContainer()
 	if err != nil {
 		slog.Error("could not start postgres container:", slog.Any("error", err))

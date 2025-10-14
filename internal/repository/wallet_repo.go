@@ -4,8 +4,11 @@ import (
 	"backend/internal/database"
 	"backend/internal/model"
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -39,4 +42,39 @@ func GetWalletAddressesFromPhone(ctx context.Context, phone string) ([]model.Wal
 	}
 
 	return addresses, nil
+}
+
+func GetPhoneNumberByUserID(ctx context.Context, userID string) (string, error) {
+	db := database.New("")
+
+	var phoneNumber string
+	query := "SELECT phone_number FROM users WHERE id = $1;"
+	err := db.QueryRowContext(ctx, query, userID).Scan(&phoneNumber)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("user with ID %v not found", userID)
+		}
+
+		return "", fmt.Errorf("database query error: %w", err)
+	}
+
+	return phoneNumber, nil
+}
+
+func InsertWalletAddressPhone(ctx context.Context, walletAddress, phoneNumber string) error {
+	db := database.New("")
+	query := `
+		INSERT INTO wallet_address_phone (address, phone_number)
+		VALUES ($1, $2)
+	`
+	_, err := db.ExecContext(ctx, query, walletAddress, phoneNumber)
+	if err != nil {
+		if strings.Contains(err.Error(), "Duplicate entry") {
+			return fmt.Errorf("wallet address already exists")
+		}
+
+		return fmt.Errorf("database insert error: %w", err)
+	}
+
+	return nil
 }

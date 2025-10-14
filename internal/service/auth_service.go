@@ -4,12 +4,16 @@ import (
 	"backend/internal/model"
 	"backend/internal/repository"
 	"backend/internal/utils"
+	"errors"
 	"log/slog"
-	"net/http"
 	"strings"
+	"time"
 
-	"github.com/alexedwards/argon2id"
 	"github.com/gin-gonic/gin"
+)
+
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
 )
 
 func SignUpService(c *gin.Context, userDetails model.UserSignUp) error {
@@ -36,34 +40,68 @@ func SignUpService(c *gin.Context, userDetails model.UserSignUp) error {
 	return nil
 }
 
-func LoginService(c *gin.Context, loginDetails model.UserLogin) (string, error) {
-	user, err := repository.FindUserByEmail(loginDetails.Email)
+func LoginService(c *gin.Context, loginDetails model.UserLogin) (string, string, error) {
+	user, err := repository.FindUserByEmail(c, loginDetails.Email)
 	if err != nil {
-		slog.Warn("Login failed for email (user not found/db error)", slog.String("email", loginDetails.Email), slog.Any("error", err))
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return "", err
+		if errors.Is(err, repository.ErrorUserNotFound) {
+			slog.Warn("Login failed for email (user not found)", slog.String("email", loginDetails.Email))
+			return "", "", ErrInvalidCredentials
+		}
+		slog.Error("Login failed due to database error", slog.String("email", loginDetails.Email), slog.Any("error", err))
+		return "", "", err
 	}
 
-	match, err := argon2id.ComparePasswordAndHash(loginDetails.Password, user.HashedPassword)
+	match, err := utils.ComparePasswordAndHash(loginDetails.Password, user.HashedPassword)
 	if err != nil {
-		// Handle error (e.g., hash format is invalid, unexpected issue)
 		slog.Error("Error comparing password and hash", slog.Any("error", err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error during password verification"})
-		return "", err
+		return "", "", err
 	}
 
 	if !match {
 		slog.Warn("Login failed for email (password mismatch)", slog.String("email", loginDetails.Email))
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return "", err
+		return "", "", ErrInvalidCredentials
 	}
 
-	token, err := utils.GenerateJWT(user.ID)
+	accessToken, err := utils.GenerateAccessToken(user.ID)
 	if err != nil {
-		slog.Error("Error generating token", slog.Any("error", err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
+		slog.Error("Error generating access token", slog.Any("error", err))
+		return "", "", err
+	}
+
+	refreshToken, err := utils.GenerateRefreshToken()
+	if err != nil {
+		slog.Error("Error generating refresh token", slog.Any("error", err))
+		return "", "", err
+	}
+
+	refreshTokenHash := repository.HashRefreshToken(refreshToken)
+	expiresAt := time.Now().Add(time.Hour * 24 * 7) // 7-day expiry
+
+	if err := repository.StoreRefreshToken(c.Request.Context(), user.ID, refreshTokenHash, expiresAt); err != nil {
+		slog.Error("Failed to store refresh token", slog.Any("error", err))
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+func RefreshTokenService(c *gin.Context, refreshToken string) (string, error) {
+	refreshTokenHash := repository.HashRefreshToken(refreshToken)
+
+	userID, err := repository.GetUserByRefreshToken(c.Request.Context(), refreshTokenHash)
+	if err != nil {
 		return "", err
 	}
 
-	return token, nil
+	accessToken, err := utils.GenerateAccessToken(userID)
+	if err != nil {
+		return "", err
+	}
+
+	return accessToken, nil
+}
+
+func LogoutService(c *gin.Context, refreshToken string) error {
+	refreshTokenHash := repository.HashRefreshToken(refreshToken)
+	return repository.DeleteRefreshToken(c.Request.Context(), refreshTokenHash)
 }

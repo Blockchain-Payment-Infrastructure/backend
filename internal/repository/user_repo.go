@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -62,24 +61,20 @@ func UserExists(ctx context.Context, email string) (bool, error) {
 	return count > 0, err
 }
 
-func FindUserByEmail(email string) (*model.User, error) {
+func FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
 	user := &model.User{}
 
 	rawDB := database.New("")
-	if rawDB == nil {
-		slog.Error("Raw database connection is nil in auth handler.")
-		return nil, gin.Error{Err: nil, Type: gin.ErrorTypePrivate, Meta: "Raw database connection unavailable"}
-	}
 
 	query := "SELECT id, email, username, phone_number, password_hash FROM users WHERE email = $1"
-	row := rawDB.QueryRowContext(context.Background(), query, email)
+	row := rawDB.QueryRowContext(ctx, query, email)
 	err := row.Scan(&user.ID, &user.Email, &user.Username, &user.PhoneNumber, &user.HashedPassword)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, gin.Error{Err: err, Type: gin.ErrorTypePrivate, Meta: "User not found"}
+			return nil, ErrorUserNotFound
 		}
 		slog.Error("Database query error in findUserByEmail", slog.Any("error", err))
-		return nil, gin.Error{Err: err, Type: gin.ErrorTypePrivate, Meta: "Database query error"}
+		return nil, fmt.Errorf("database query error: %w", err)
 	}
 
 	return user, nil

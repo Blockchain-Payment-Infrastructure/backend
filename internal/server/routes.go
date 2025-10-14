@@ -10,10 +10,12 @@ import (
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
-	r := gin.Default()
+	r := gin.New()
 
+	r.Use(gin.Recovery())
+	r.Use(middleware.StructuredLogger())
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:8081"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -26,13 +28,29 @@ func (s *Server) RegisterRoutes() http.Handler {
 	{
 		auth.POST("/signup", handler.SignUpHandler)
 		auth.POST("/login", handler.LoginHandler)
+		auth.POST("/refresh", handler.RefreshTokenHandler)
+		auth.POST("/logout", handler.LogoutHandler)
 	}
 
 	wallet := r.Group("/wallet")
 
 	wallet.Use(middleware.AuthMiddleware())
 	{
-		wallet.GET("/addresses", handler.WalletAddressFromPhoneHandler)
+		wallet.GET("/addresses/:phone_number", handler.WalletAddressFromPhoneHandler)
+		wallet.POST("/connect", handler.ConnectWalletHandler)
+		wallet.GET("/balance/:address", handler.GetWalletBalanceHandler)
+		wallet.GET("/balances", handler.GetUserWalletBalancesHandler)
+	}
+
+	payments := r.Group("/payments")
+	payments.Use(middleware.AuthMiddleware())
+	{
+		payments.POST("", handler.CreatePaymentHandler)
+		payments.GET("", handler.GetUserPaymentsHandler)
+		payments.GET("/stats", handler.GetPaymentStatsHandler)
+		payments.GET("/:id", handler.GetPaymentHandler)
+		payments.POST("/:id/refresh", handler.RefreshPaymentStatusHandler)
+		payments.GET("/tx/:hash", handler.GetPaymentByTransactionHashHandler)
 	}
 
 	return r

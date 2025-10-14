@@ -3,6 +3,10 @@
 // @description	API documentation for the blockchain backend payment system
 // @host			localhost:8080
 // @BasePath		/
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 package main
 
 import (

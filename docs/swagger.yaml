@@ -1,5 +1,83 @@
 basePath: /
 definitions:
+  model.ConnectWalletRequest:
+    properties:
+      message:
+        type: string
+      signature:
+        type: string
+    type: object
+  model.CreatePaymentRequest:
+    properties:
+      amount:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      to_address:
+        description: Ethereum address length
+        type: string
+      transaction_hash:
+        description: Transaction hash length
+        type: string
+    required:
+    - amount
+    - to_address
+    - transaction_hash
+    type: object
+  model.PaymentListResponse:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      payments:
+        items:
+          $ref: '#/definitions/model.PaymentResponse'
+        type: array
+      total_count:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  model.PaymentResponse:
+    properties:
+      amount:
+        type: string
+      block_number:
+        type: integer
+      confirmed_at:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      from_address:
+        type: string
+      id:
+        type: string
+      status:
+        $ref: '#/definitions/model.PaymentStatus'
+      to_address:
+        type: string
+      transaction_hash:
+        type: string
+    type: object
+  model.PaymentStatus:
+    enum:
+    - pending
+    - confirmed
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - PaymentStatusPending
+    - PaymentStatusConfirmed
+    - PaymentStatusFailed
+    - PaymentStatusCancelled
   model.UserLogin:
     properties:
       email:
@@ -16,14 +94,22 @@ definitions:
         description: Added min length for password
         minLength: 8
         type: string
+      phone_number:
+        type: string
       username:
         description: Added min length
         minLength: 3
         type: string
     required:
-      - email
-      - password
-      - username
+    - email
+    - password
+    - phone_number
+    - username
+    type: object
+  model.WalletAddress:
+    properties:
+      address:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -35,24 +121,31 @@ paths:
   /auth/login:
     post:
       consumes:
-        - application/json
-      description: Logs the user in and returns a jwt token
+      - application/json
+      description: Logs the user in, returning a short-lived access token in the response
+        and a long-lived refresh token in a secure HttpOnly cookie.
       parameters:
-        - description: User logindetails
-          in: body
-          name: loginDetails
-          required: true
-          schema:
-            $ref: "#/definitions/model.UserLogin"
+      - description: User login details
+        in: body
+        name: loginDetails
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserLogin'
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: Login successful!
           schema:
-            type: string
+            additionalProperties:
+              type: string
+            type: object
         "400":
           description: Validation error
+          schema:
+            type: string
+        "401":
+          description: Invalid credentials
           schema:
             type: string
         "500":
@@ -61,23 +154,56 @@ paths:
             type: string
       summary: User Login
       tags:
-        - auth
+      - auth
+  /auth/logout:
+    post:
+      description: Logs the user out by invalidating their refresh token and clearing
+        the associated cookie.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful
+          schema:
+            type: string
+      summary: User Logout
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      description: Generates a new access token using the refresh token sent in the
+        HttpOnly cookie.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New access token generated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized or invalid refresh token
+          schema:
+            type: string
+      summary: Refresh Access Token
+      tags:
+      - auth
   /auth/signup:
     post:
       consumes:
-        - application/json
-      description:
-        Creates a new user account after validating username, email, and
-        password
+      - application/json
+      description: Creates a new user account after validating username, email, phoneNumber
+        and password
       parameters:
-        - description: User sign up details
-          in: body
-          name: userDetails
-          required: true
-          schema:
-            $ref: "#/definitions/model.UserSignUp"
+      - description: User sign up details
+        in: body
+        name: userDetails
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserSignUp'
       produces:
-        - application/json
+      - application/json
       responses:
         "201":
           description: Account created successfully
@@ -93,5 +219,353 @@ paths:
             type: string
       summary: User Sign Up
       tags:
-        - auth
+      - auth
+  /payments:
+    get:
+      description: Retrieves paginated list of payments for the authenticated user
+      parameters:
+      - description: Filter by payment status
+        in: query
+        name: status
+        type: string
+      - description: Filter by currency
+        in: query
+        name: currency
+        type: string
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Page size (default: 20, max: 100)'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of payments
+          schema:
+            $ref: '#/definitions/model.PaymentListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get User Payments
+      tags:
+      - payments
+    post:
+      consumes:
+      - application/json
+      description: Creates a new payment record after verifying the transaction on
+        blockchain
+      parameters:
+      - description: Payment creation details
+        in: body
+        name: paymentRequest
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreatePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Payment created successfully
+          schema:
+            $ref: '#/definitions/model.PaymentResponse'
+        "400":
+          description: Validation error or bad request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Create Payment
+      tags:
+      - payments
+  /payments/{id}:
+    get:
+      description: Retrieves a specific payment by ID
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment details
+          schema:
+            $ref: '#/definitions/model.PaymentResponse'
+        "400":
+          description: Invalid payment ID
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Payment not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get Payment
+      tags:
+      - payments
+  /payments/{id}/refresh:
+    post:
+      description: Checks blockchain for payment status updates and refreshes the
+        payment record
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated payment details
+          schema:
+            $ref: '#/definitions/model.PaymentResponse'
+        "400":
+          description: Invalid payment ID
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Payment not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Refresh Payment Status
+      tags:
+      - payments
+  /payments/stats:
+    get:
+      description: Retrieves payment statistics for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment statistics
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get Payment Statistics
+      tags:
+      - payments
+  /payments/tx/{hash}:
+    get:
+      description: Retrieves a payment by its blockchain transaction hash
+      parameters:
+      - description: Transaction Hash
+        in: path
+        name: hash
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment details
+          schema:
+            $ref: '#/definitions/model.PaymentResponse'
+        "400":
+          description: Invalid transaction hash
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Payment not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get Payment by Transaction Hash
+      tags:
+      - payments
+  /wallet/addresses/{phone_number}:
+    get:
+      description: Retrieves wallet addresses associated with a phone number
+      parameters:
+      - description: Phone Number
+        in: path
+        name: phone_number
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of wallet addresses
+          schema:
+            items:
+              $ref: '#/definitions/model.WalletAddress'
+            type: array
+        "400":
+          description: Invalid phone number
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get Wallet Address by Phone Number
+      tags:
+      - wallet
+  /wallet/balance/{address}:
+    get:
+      description: Gets the ETH balance of a wallet address
+      parameters:
+      - description: Wallet Address
+        in: path
+        name: address
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Wallet balance information
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid address
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get Wallet Balance
+      tags:
+      - wallet
+  /wallet/balances:
+    get:
+      description: Gets ETH balances for all user's connected wallets
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: All wallet balances
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get All User Wallet Balances
+      tags:
+      - wallet
+  /wallet/connect:
+    post:
+      consumes:
+      - application/json
+      description: Connects a user's wallet by verifying a signed message
+      parameters:
+      - description: Wallet connection request
+        in: body
+        name: connectRequest
+        required: true
+        schema:
+          $ref: '#/definitions/model.ConnectWalletRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Wallet connected successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request payload or signature
+          schema:
+            type: string
+        "401":
+          description: Unauthorized or signature verification failed
+          schema:
+            type: string
+        "409":
+          description: Wallet already linked to an account
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Connect Wallet
+      tags:
+      - wallet
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
