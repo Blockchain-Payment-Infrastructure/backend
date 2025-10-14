@@ -23,7 +23,7 @@ func NewClient() (*Client, error) {
 	if rpcURL == "" {
 		ginMode := os.Getenv("GIN_MODE")
 		if ginMode != "release" { // gin.ReleaseMode = "release"
-			rpcURL = "http://127.0.0.1:8545"
+			rpcURL = "http://127.0.0.1:7545"
 			slog.Warn("ETHEREUM_RPC_URL not set, using default local development RPC", slog.String("url", rpcURL))
 		} else {
 			// Default to a public Ethereum mainnet RPC for production
