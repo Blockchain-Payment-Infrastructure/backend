@@ -46,7 +46,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		if userID, exists := claims["user_id"].(string); exists {
-			c.Set("userID", userID)
+			c.Set(string(UserIDKey), userID)
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "user_id missing in token"})
 			c.Abort()

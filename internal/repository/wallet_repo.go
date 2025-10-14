@@ -64,7 +64,7 @@ func GetPhoneNumberByUserID(ctx context.Context, userID string) (string, error) 
 func InsertWalletAddressPhone(ctx context.Context, walletAddress, phoneNumber string) error {
 	db := database.New("")
 	query := `
-		INSERT INTO wallet_address_phone (wallet_address, phone_number) 
+		INSERT INTO wallet_address_phone (address, phone_number)
 		VALUES ($1, $2)
 	`
 	_, err := db.ExecContext(ctx, query, walletAddress, phoneNumber)
