@@ -102,6 +102,7 @@ GOTO :EOF
 
 :test
     ECHO Testing...
+    set GIN_MODE=test
     go test ./tests -v
     GOTO :EOF
 
