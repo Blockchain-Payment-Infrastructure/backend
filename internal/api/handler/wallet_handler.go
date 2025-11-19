@@ -40,6 +40,7 @@ func WalletAddressFromPhoneHandler(c *gin.Context) {
 	phoneNumber := c.Param("phone_number")
 	if len(phoneNumber) != 10 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": ErrorInvalidPhoneNumber})
+		return
 	}
 
 	if addresses, err := service.GetWalletAddressFromPhone(c, phoneNumber); err == nil {
