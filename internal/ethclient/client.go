@@ -1,6 +1,7 @@
 package ethclient
 
 import (
+	"backend/internal/config"
 	"context"
 	"log/slog"
 	"math/big"
@@ -22,7 +23,7 @@ type Client struct {
 func NewClient() (*Client, error) {
 	rpcURL := os.Getenv("ETHEREUM_RPC_URL")
 	if rpcURL == "" {
-		if os.Getenv("GIN_MODE") != gin.ReleaseMode {
+		if config.AppMode != gin.ReleaseMode {
 			rpcURL = "http://127.0.0.1:7545"
 			slog.Warn("ETHEREUM_RPC_URL not set, using default local development RPC", slog.String("url", rpcURL))
 		} else {

@@ -1,12 +1,14 @@
 package utils
 
 import (
+	"backend/internal/config"
 	"crypto/rand"
 	"encoding/hex"
 	"log/slog"
 	"os"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -16,12 +18,11 @@ var JwtSecretKey = []byte(os.Getenv("JWT_SECRET_KEY"))
 func init() {
 	if len(JwtSecretKey) == 0 {
 		// Check if we're in test mode
-		if os.Getenv("GIN_MODE") == "test" {
+		if config.AppMode == gin.DebugMode {
 			JwtSecretKey = []byte("test_secret_key")
 		} else {
 			slog.Error("JWT_SECRET_KEY environment variable is not set!")
-			JwtSecretKey = []byte("super_insecure_default_key_for_dev_only_change_this")
-			slog.Warn("Using a default insecure JWT_SECRET_KEY for development. PLEASE SET JWT_SECRET_KEY environment variable.")
+			panic("No JWT_SECRET_KEY set")
 		}
 	}
 }

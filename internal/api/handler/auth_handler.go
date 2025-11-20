@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"backend/internal/config"
 	"backend/internal/model"
 	"backend/internal/service"
 	"errors"
@@ -68,7 +69,8 @@ func LoginHandler(c *gin.Context) {
 	}
 
 	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("refresh_token", refreshToken, 3600*24*7, "/", "", false, true)
+	c.SetCookie("refresh_token", refreshToken, 3600*24*7, "/", "", config.SecureCookie, true)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful!", "access_token": accessToken})
 }
 

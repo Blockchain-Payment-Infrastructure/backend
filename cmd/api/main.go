@@ -20,9 +20,11 @@ import (
 	"syscall"
 	"time"
 
+	"backend/internal/config"
 	"backend/internal/database"
 	"backend/internal/server"
 
+	"github.com/gin-gonic/gin"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
@@ -53,6 +55,8 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 }
 
 func main() {
+	gin.SetMode(config.AppMode)
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
 	}))

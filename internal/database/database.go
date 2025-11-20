@@ -1,6 +1,7 @@
 package database
 
 import (
+	"backend/internal/config"
 	"context"
 	"database/sql"
 	"errors"
@@ -98,7 +99,7 @@ func New(dbUrl string) Service {
 		dbUrl = fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s",
 			user, pass, host, port, dbName)
 
-		if os.Getenv("GIN_MODE") == gin.ReleaseMode {
+		if config.AppMode == gin.ReleaseMode {
 			dbUrl += " sslmode=require"
 		}
 	}
