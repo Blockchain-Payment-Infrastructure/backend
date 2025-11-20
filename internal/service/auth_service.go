@@ -41,7 +41,7 @@ func SignUpService(c *gin.Context, userDetails model.UserSignUp) error {
 }
 
 func LoginService(c *gin.Context, loginDetails model.UserLogin) (string, string, error) {
-	user, err := repository.FindUserByEmail(c, loginDetails.Email)
+	user, err := repository.FindUserByEmail(c.Request.Context(), loginDetails.Email)
 	if err != nil {
 		if errors.Is(err, repository.ErrorUserNotFound) {
 			slog.Warn("Login failed for email (user not found)", slog.String("email", loginDetails.Email))

@@ -17,7 +17,6 @@ var JwtSecretKey = []byte(os.Getenv("JWT_SECRET_KEY"))
 
 func init() {
 	if len(JwtSecretKey) == 0 {
-		// Check if we're in test mode
 		if config.AppMode == gin.DebugMode {
 			JwtSecretKey = []byte("test_secret_key")
 		} else {
@@ -27,9 +26,11 @@ func init() {
 	}
 }
 
+// GenerateAccessToken accepts a UUID for the user ID and places the UUID
+// string into the token claims under `user_id`.
 func GenerateAccessToken(userID uuid.UUID) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": userID,
+		"user_id": userID.String(),
 		"exp":     time.Now().Add(time.Minute * 15).Unix(),
 	}
 

@@ -79,3 +79,104 @@ func FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
 
 	return user, nil
 }
+
+// FindUserByID finds a user by their numeric ID.
+func FindUserByID(ctx context.Context, userID uuid.UUID) (*model.User, error) {
+	user := &model.User{}
+
+	rawDB := database.New("")
+
+	query := "SELECT id, email, username, phone_number, password_hash FROM users WHERE id = $1"
+	row := rawDB.QueryRowContext(ctx, query, userID)
+	err := row.Scan(&user.ID, &user.Email, &user.Username, &user.PhoneNumber, &user.HashedPassword)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrorUserNotFound
+		}
+		slog.Error("Database query error in FindUserByID", slog.Any("error", err))
+		return nil, fmt.Errorf("database query error: %w", err)
+	}
+
+	return user, nil
+}
+func UpdateUserPassword(ctx context.Context, userID uuid.UUID, newHashedPassword string) error {
+	db := database.New("")
+	if db == nil {
+		return fmt.Errorf("database service not set in repository")
+	}
+
+	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
+	result, err := database.New("").ExecContext(ctx, query, newHashedPassword, userID)
+	if err != nil {
+		slog.Error("Repository: Failed to update user password", slog.Any("error", err), slog.String("userID", userID.String()))
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("user with ID %s not found or password was not changed", userID.String())
+	}
+	return nil
+}
+
+func UpdateUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) error {
+	db := database.New("")
+	if db == nil {
+		return fmt.Errorf("database service not set in repository")
+	}
+
+	query := `UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2`
+	result, err := db.ExecContext(ctx, query, newEmail, userID)
+	if err != nil {
+		slog.Error("Repository: Failed to update user email", slog.Any("error", err), slog.String("userID", userID.String()))
+		// Check for unique constraint violation on email
+		// if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" { // Example for pgx, adjust if needed
+		// 	return fmt.Errorf("email already in use")
+		// }
+		return fmt.Errorf("failed to update email: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("user with ID %s not found or email was not changed", userID.String())
+	}
+	return nil
+}
+func DeleteUser(ctx context.Context, userID uuid.UUID) error {
+	db := database.New("")
+	if db == nil {
+		return fmt.Errorf("database service not set in repository")
+	}
+
+	// Start a transaction for deleting user and related data
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		slog.Error("Repository: Failed to begin transaction for user deletion", slog.Any("error", err))
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Rollback on error if commit doesn't happen
+
+	// Example: Delete wallet addresses associated with the user first (if they exist)
+	// You need to adjust this based on your actual schema and foreign key constraints
+	// queryDeleteWallets := `DELETE FROM user_wallet_addresses WHERE user_id = $1`
+	// _, err = tx.ExecContext(ctx, queryDeleteWallets, userID)
+	// if err != nil {
+	// 	slog.Error("Repository: Failed to delete user wallet addresses", slog.Any("error", err), slog.Uint64("userID", uint64(userID)))
+	// 	return fmt.Errorf("failed to delete user wallet addresses: %w", err)
+	// }
+
+	// Then, delete the user itself
+	queryDeleteUser := `DELETE FROM users WHERE id = $1`
+	result, err := tx.ExecContext(ctx, queryDeleteUser, userID)
+	if err != nil {
+		slog.Error("Repository: Failed to delete user", slog.Any("error", err), slog.String("userID", userID.String()))
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("user with ID %s not found or account was not deleted", userID.String())
+	}
+
+	return tx.Commit() // Commit the transaction
+}
