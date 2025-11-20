@@ -90,17 +90,24 @@ func New(dbUrl string) Service {
 	}
 
 	if dbUrl == "" {
-		user := os.Getenv("DB_USERNAME")
-		pass := os.Getenv("DB_PASSWORD")
-		host := os.Getenv("DB_HOST")
-		port := os.Getenv("DB_PORT")
-		dbName := os.Getenv("DB_DATABASE")
+		// Prefer a full DATABASE_URL (URI) if provided — this allows developers
+		// to point the app at a local docker/postgres instance using a single
+		// env var (e.g. postgres://user:pass@host:port/dbname?sslmode=disable).
+		if envURL := os.Getenv("DATABASE_URL"); envURL != "" {
+			dbUrl = envURL
+		} else {
+			user := os.Getenv("DB_USERNAME")
+			pass := os.Getenv("DB_PASSWORD")
+			host := os.Getenv("DB_HOST")
+			port := os.Getenv("DB_PORT")
+			dbName := os.Getenv("DB_DATABASE")
 
-		dbUrl = fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s",
-			user, pass, host, port, dbName)
+			dbUrl = fmt.Sprintf("user=%s password=%s host=%s port=%s database=%s",
+				user, pass, host, port, dbName)
 
-		if config.AppMode == gin.ReleaseMode {
-			dbUrl += " sslmode=require"
+			if config.AppMode == gin.ReleaseMode {
+				dbUrl += " sslmode=require"
+			}
 		}
 	}
 

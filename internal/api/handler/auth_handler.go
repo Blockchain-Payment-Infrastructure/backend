@@ -25,16 +25,16 @@ import (
 func SignUpHandler(c *gin.Context) {
 	var userDetails model.UserSignUp
 	if err := c.ShouldBindJSON(&userDetails); err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
+		JSONError(c, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
 	if err := service.SignUpService(c, userDetails); err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
+		JSONError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"result": "account created successfully"})
+	JSONSuccess(c, http.StatusCreated, gin.H{"result": "account created successfully"})
 }
 
 // LoginHandler godoc
@@ -54,25 +54,24 @@ func LoginHandler(c *gin.Context) {
 	var loginDetails model.UserLogin
 
 	if err := c.ShouldBindJSON(&loginDetails); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		JSONError(c, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
 	accessToken, refreshToken, err := service.LoginService(c, loginDetails)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			JSONError(c, http.StatusUnauthorized, "Invalid credentials", err)
 			return
 		}
-
-		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		JSONError(c, http.StatusInternalServerError, "Internal server error", err)
 		return
 	}
 
 	c.SetSameSite(http.SameSiteStrictMode)
 	c.SetCookie("refresh_token", refreshToken, 3600*24*7, "/", "", config.SecureCookie, true)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful!", "access_token": accessToken})
+	JSONSuccess(c, http.StatusOK, gin.H{"message": "Login successful!", "access_token": accessToken})
 }
 
 // RefreshTokenHandler godoc
@@ -87,17 +86,17 @@ func LoginHandler(c *gin.Context) {
 func RefreshTokenHandler(c *gin.Context) {
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token not found"})
+		JSONError(c, http.StatusUnauthorized, "Refresh token not found", err)
 		return
 	}
 
 	accessToken, err := service.RefreshTokenService(c, refreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+		JSONError(c, http.StatusUnauthorized, "Invalid refresh token", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"access_token": accessToken})
+	JSONSuccess(c, http.StatusOK, gin.H{"access_token": accessToken})
 }
 
 // LogoutHandler godoc
@@ -115,5 +114,5 @@ func LogoutHandler(c *gin.Context) {
 	}
 
 	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
-	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
+	JSONSuccess(c, http.StatusOK, gin.H{"message": "Logout successful"})
 }

@@ -3,6 +3,7 @@ package ethclient
 import (
 	"backend/internal/config"
 	"context"
+	"errors"
 	"log/slog"
 	"math/big"
 	"os"
@@ -19,6 +20,12 @@ type Client struct {
 	rpcURL string
 }
 
+var (
+	// ErrEthereumRPCURLNotConfigured is returned when the ETHEREUM_RPC_URL
+	// environment variable is missing in a production (release) environment.
+	ErrEthereumRPCURLNotConfigured = errors.New("ETHEREUM_RPC_URL environment variable is not set")
+)
+
 // NewClient creates a new Ethereum client
 func NewClient() (*Client, error) {
 	rpcURL := os.Getenv("ETHEREUM_RPC_URL")
@@ -27,7 +34,7 @@ func NewClient() (*Client, error) {
 			rpcURL = "http://127.0.0.1:7545"
 			slog.Warn("ETHEREUM_RPC_URL not set, using default local development RPC", slog.String("url", rpcURL))
 		} else {
-			panic("No ETHEREUM_RPC_URL found")
+			return nil, ErrEthereumRPCURLNotConfigured
 		}
 	}
 

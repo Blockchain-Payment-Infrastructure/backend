@@ -31,6 +31,8 @@ func StructuredLogger() gin.HandlerFunc {
 
 		if len(c.Errors) > 0 {
 			logger.Error("Request failed", slog.String("error", c.Errors.String()))
+		} else {
+			logger.Info("Request Handled")
 		}
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"backend/internal/config"
 	"crypto/rand"
 	"encoding/hex"
-	"log/slog"
+	"errors"
 	"os"
 	"time"
 
@@ -15,21 +15,26 @@ import (
 
 var JwtSecretKey = []byte(os.Getenv("JWT_SECRET_KEY"))
 
+// Predeclared errors for predictable error handling by callers.
+var (
+	ErrJWTSecretKeyNotConfigured = errors.New("jwt secret key is not configured")
+)
+
 func init() {
 	if len(JwtSecretKey) == 0 {
-		// Check if we're in test mode
 		if config.AppMode == gin.DebugMode {
 			JwtSecretKey = []byte("test_secret_key")
 		} else {
-			slog.Error("JWT_SECRET_KEY environment variable is not set!")
-			panic("No JWT_SECRET_KEY set")
+			panic("JWT_SECRET_KEY environment variable is not set")
 		}
 	}
 }
 
+// GenerateAccessToken accepts a UUID for the user ID and places the UUID
+// string into the token claims under `user_id`.
 func GenerateAccessToken(userID uuid.UUID) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": userID,
+		"user_id": userID.String(),
 		"exp":     time.Now().Add(time.Minute * 15).Unix(),
 	}
 
@@ -38,6 +43,7 @@ func GenerateAccessToken(userID uuid.UUID) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return signedToken, nil
 }
 

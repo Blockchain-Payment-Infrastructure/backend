@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	ErrorPaymentNotFound      = fmt.Errorf("payment not found")
-	ErrorDuplicateTransaction = fmt.Errorf("transaction hash already exists")
-	ErrorInvalidPaymentStatus = fmt.Errorf("invalid payment status")
+	ErrorPaymentNotFound      = errors.New("payment not found")
+	ErrorDuplicateTransaction = errors.New("transaction hash already exists")
+	ErrorInvalidPaymentStatus = errors.New("invalid payment status")
 )
 
 // CreatePayment creates a new payment record in the database
@@ -62,7 +62,7 @@ func CreatePayment(ctx context.Context, payment *model.Payment) error {
 			}
 		}
 		slog.Error("Failed to create payment", slog.Any("error", err))
-		return fmt.Errorf("failed to create payment: %w", err)
+		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	return nil
@@ -103,7 +103,7 @@ func GetPaymentByID(ctx context.Context, paymentID uuid.UUID) (*model.Payment, e
 			return nil, ErrorPaymentNotFound
 		}
 		slog.Error("Failed to get payment by ID", slog.Any("error", err), slog.Any("paymentID", paymentID))
-		return nil, fmt.Errorf("failed to get payment: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	return payment, nil
@@ -144,7 +144,7 @@ func GetPaymentByTransactionHash(ctx context.Context, txHash string) (*model.Pay
 			return nil, ErrorPaymentNotFound
 		}
 		slog.Error("Failed to get payment by transaction hash", slog.Any("error", err), slog.String("txHash", txHash))
-		return nil, fmt.Errorf("failed to get payment: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	return payment, nil
@@ -177,7 +177,7 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 	err := db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
 	if err != nil {
 		slog.Error("Failed to count payments", slog.Any("error", err))
-		return nil, fmt.Errorf("failed to count payments: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	// Calculate pagination
@@ -199,7 +199,7 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 	rows, err := db.QueryContext(ctx, selectQuery, args...)
 	if err != nil {
 		slog.Error("Failed to query payments", slog.Any("error", err))
-		return nil, fmt.Errorf("failed to query payments: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 	defer rows.Close()
 
@@ -225,14 +225,14 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 		)
 		if err != nil {
 			slog.Error("Failed to scan payment row", slog.Any("error", err))
-			return nil, fmt.Errorf("failed to scan payment: %w", err)
+			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
 		payments = append(payments, payment.ToResponse())
 	}
 
 	if err = rows.Err(); err != nil {
 		slog.Error("Row iteration error", slog.Any("error", err))
-		return nil, fmt.Errorf("row iteration error: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	return &model.PaymentListResponse{
@@ -266,12 +266,12 @@ func UpdatePaymentStatus(ctx context.Context, paymentID uuid.UUID, status model.
 	result, err := db.ExecContext(ctx, query, status, blockNumber, gasUsed, gasPrice, confirmedAt, paymentID)
 	if err != nil {
 		slog.Error("Failed to update payment status", slog.Any("error", err), slog.Any("paymentID", paymentID))
-		return fmt.Errorf("failed to update payment status: %w", err)
+		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	if rowsAffected == 0 {
@@ -289,12 +289,12 @@ func DeletePayment(ctx context.Context, paymentID uuid.UUID) error {
 	result, err := db.ExecContext(ctx, query, paymentID)
 	if err != nil {
 		slog.Error("Failed to delete payment", slog.Any("error", err), slog.Any("paymentID", paymentID))
-		return fmt.Errorf("failed to delete payment: %w", err)
+		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	if rowsAffected == 0 {
@@ -319,7 +319,7 @@ func GetPendingPayments(ctx context.Context) ([]*model.Payment, error) {
 	rows, err := db.QueryContext(ctx, query, model.PaymentStatusPending)
 	if err != nil {
 		slog.Error("Failed to query pending payments", slog.Any("error", err))
-		return nil, fmt.Errorf("failed to query pending payments: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 	defer rows.Close()
 
@@ -345,7 +345,7 @@ func GetPendingPayments(ctx context.Context) ([]*model.Payment, error) {
 		)
 		if err != nil {
 			slog.Error("Failed to scan pending payment row", slog.Any("error", err))
-			return nil, fmt.Errorf("failed to scan payment: %w", err)
+			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
 		payments = append(payments, payment)
 	}
@@ -368,24 +368,24 @@ func GetUserWalletAddresses(ctx context.Context, userID string) ([]string, error
 	err := db.QueryRowContext(ctx, userQuery, userID).Scan(&phoneNumber)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+			return nil, ErrorUserNotFound
 		}
-		return nil, fmt.Errorf("failed to get user phone number: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	// Then get wallet addresses for that phone number
 	walletQuery := "SELECT address FROM wallet_address_phone WHERE phone_number = $1"
 	rows, err := db.QueryContext(ctx, walletQuery, phoneNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get wallet addresses: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 	defer rows.Close()
 
 	var addresses []string
 	for rows.Next() {
 		var address string
-		if err := rows.Scan(&address); err != nil {
-			return nil, fmt.Errorf("failed to scan wallet address: %w", err)
+			if err := rows.Scan(&address); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
 		addresses = append(addresses, address)
 	}
