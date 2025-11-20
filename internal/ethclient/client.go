@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/gin-gonic/gin"
 )
 
 // Client wraps the Ethereum client with common operations
@@ -21,14 +22,11 @@ type Client struct {
 func NewClient() (*Client, error) {
 	rpcURL := os.Getenv("ETHEREUM_RPC_URL")
 	if rpcURL == "" {
-		ginMode := os.Getenv("GIN_MODE")
-		if ginMode != "release" { // gin.ReleaseMode = "release"
+		if os.Getenv("GIN_MODE") != gin.ReleaseMode {
 			rpcURL = "http://127.0.0.1:7545"
 			slog.Warn("ETHEREUM_RPC_URL not set, using default local development RPC", slog.String("url", rpcURL))
 		} else {
-			// Default to a public Ethereum mainnet RPC for production
-			rpcURL = "https://eth.llamarpc.com"
-			slog.Warn("ETHEREUM_RPC_URL not set, using default public RPC", slog.String("url", rpcURL))
+			panic("No ETHEREUM_RPC_URL found")
 		}
 	}
 

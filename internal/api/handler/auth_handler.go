@@ -111,6 +111,6 @@ func LogoutHandler(c *gin.Context) {
 		_ = service.LogoutService(c, refreshToken)
 	}
 
-	c.SetCookie("refresh_token", "", -1, "/", "localhost", false, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }
