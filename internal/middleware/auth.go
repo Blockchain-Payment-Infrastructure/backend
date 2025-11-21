@@ -16,22 +16,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// Use the shared JwtSecretKey from the utils package so token generation and
-// validation use the same secret.
-var JwtSecretKey = utils.JwtSecretKey
+var (
+	JwtSecretKey                 = utils.JwtSecretKey
+	ErrorUnexpectedSigningMethod = errors.New("unexpected signing method")
+)
 
-// Exported sentinel error for unexpected signing algorithms in tokens.
-var ErrorUnexpectedSigningMethod = errors.New("unexpected signing method")
-
-func init() {
-	if len(JwtSecretKey) == 0 {
-		slog.Error("JWT_SECRET_KEY environment variable is not set!")
-		JwtSecretKey = []byte("super_insecure_default_key_for_dev_only_change_this") // INSECURE DEFAULT
-		slog.Warn("Using a default insecure JWT_SECRET_KEY for development. PLEASE SET JWT_SECRET_KEY environment variable.")
-	}
-}
-
-// AuthMiddleware validates JWT tokens and sets the user ID in the context.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("Authorization")
@@ -42,22 +31,19 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Check for "Bearer " prefix and extract the token
 		if !strings.HasPrefix(tokenString, "Bearer ") {
-			// Log a hint (but do NOT log the token itself)
 			slog.Warn("AuthMiddleware: Authorization header missing 'Bearer ' prefix", slog.Int("len", len(tokenString)))
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format; expected 'Authorization: Bearer <token>'"})
 			c.Abort()
 			return
 		}
-		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
-		// Parse and validate the token
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Validate the alg is what we expect
+		tokenString = tokenString[7:]
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("%w: %v", ErrorUnexpectedSigningMethod, token.Header["alg"])
 			}
+
 			return JwtSecretKey, nil
 		})
 
@@ -69,7 +55,6 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			// Check expiration
 			if exp, ok := claims["exp"].(float64); ok {
 				if int64(exp) < time.Now().Unix() {
 					c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has expired"})
@@ -83,7 +68,6 @@ func AuthMiddleware() gin.HandlerFunc {
 				return
 			}
 
-			// Extract user ID and set it in the context. Tokens should include user_id as a UUID string.
 			if userIDStr, ok := claims["user_id"].(string); ok {
 				parsedID, err := uuid.Parse(userIDStr)
 				if err != nil {
@@ -92,8 +76,7 @@ func AuthMiddleware() gin.HandlerFunc {
 					c.Abort()
 					return
 				}
-				// Store the UUID as a string in the Gin context to match handler
-				// expectations (handlers read it as a string).
+
 				c.Set(string(UserIDKey), parsedID.String())
 				c.Next()
 			} else {

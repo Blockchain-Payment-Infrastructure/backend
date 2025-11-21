@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"errors"
 	"backend/internal/model"
 	"backend/internal/service"
 	"backend/internal/utils"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -75,6 +75,7 @@ func UpdateEmailHandler(c *gin.Context) {
 		JSONError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+
 	if err := service.UpdateEmailService(c.Request.Context(), userID, req); err != nil {
 		if errors.Is(err, service.ErrInvalidPassword) || errors.Is(err, service.ErrUserNotFoundOrInvalidCredentials) {
 			JSONError(c, http.StatusUnauthorized, err.Error(), err)

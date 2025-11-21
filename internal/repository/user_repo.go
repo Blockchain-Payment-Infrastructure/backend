@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -36,15 +35,10 @@ func CreateUser(ctx context.Context, user model.UserSignUp) error {
 				case "users_phone_number_key":
 					return ErrorPhoneNumberExists
 				default:
-					slog.Warn("Unhandled unique violation:",
-						slog.String("constraint", pgErr.ConstraintName))
 					return fmt.Errorf("%w: %s", ErrorUnhandledUniqueConstraint, pgErr.ConstraintName)
 				}
 			default:
-				slog.Error("postgres error:",
-					slog.String("code", pgErr.Code),
-					slog.Any("err", pgErr))
-				return pgErr
+				return fmt.Errorf("%w: %v", ErrorDatabase, pgErr)
 			}
 		}
 		return err
@@ -73,7 +67,6 @@ func FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
 		if err == sql.ErrNoRows {
 			return nil, ErrorUserNotFound
 		}
-		slog.Error("Database query error in findUserByEmail", slog.Any("error", err))
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -93,7 +86,6 @@ func FindUserByID(ctx context.Context, userID uuid.UUID) (*model.User, error) {
 		if err == sql.ErrNoRows {
 			return nil, ErrorUserNotFound
 		}
-		slog.Error("Database query error in FindUserByID", slog.Any("error", err))
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -108,7 +100,6 @@ func UpdateUserPassword(ctx context.Context, userID uuid.UUID, newHashedPassword
 	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
 	result, err := database.New("").ExecContext(ctx, query, newHashedPassword, userID)
 	if err != nil {
-		slog.Error("Repository: Failed to update user password", slog.Any("error", err), slog.String("userID", userID.String()))
 		return fmt.Errorf("%w: %v", ErrorUpdatePasswordFailed, err)
 	}
 
@@ -128,11 +119,6 @@ func UpdateUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) err
 	query := `UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2`
 	result, err := db.ExecContext(ctx, query, newEmail, userID)
 	if err != nil {
-		slog.Error("Repository: Failed to update user email", slog.Any("error", err), slog.String("userID", userID.String()))
-		// Check for unique constraint violation on email
-		// if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" { // Example for pgx, adjust if needed
-		// 	return fmt.Errorf("email already in use")
-		// }
 		return fmt.Errorf("%w: %v", ErrorUpdateEmailFailed, err)
 	}
 
@@ -151,7 +137,6 @@ func DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	// Start a transaction for deleting user and related data
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		slog.Error("Repository: Failed to begin transaction for user deletion", slog.Any("error", err))
 		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 	defer tx.Rollback() // Rollback on error if commit doesn't happen
@@ -169,7 +154,6 @@ func DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	queryDeleteUser := `DELETE FROM users WHERE id = $1`
 	result, err := tx.ExecContext(ctx, queryDeleteUser, userID)
 	if err != nil {
-		slog.Error("Repository: Failed to delete user", slog.Any("error", err), slog.String("userID", userID.String()))
 		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 

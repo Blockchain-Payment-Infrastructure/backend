@@ -6,23 +6,15 @@ import (
 	"backend/internal/middleware"
 	"net/http"
 
-	// <--- ADD THIS IMPORT for CORS configuration
 	"github.com/gin-gonic/gin"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.New()
 
-	// Apply global middleware
 	r.Use(gin.Recovery())
 	r.Use(middleware.StructuredLogger())
 
-	// Database service is available on the server as `s.db` and
-	// repository/service packages can obtain DB connections via their own
-	// helpers (e.g., calling `database.New`) — avoid global setters here
-	// to keep initialization explicit and clear.
-
-	// --- Public Routes ---
 	r.GET("/", s.HelloWorldHandler)
 	r.GET("/health", s.healthHandler)
 
@@ -30,17 +22,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 	{
 		auth.POST("/signup", handler.SignUpHandler)
 		auth.POST("/login", handler.LoginHandler)
-		auth.POST("/refresh", handler.RefreshTokenHandler) // Requires handler.RefreshTokenHandler
-		auth.POST("/logout", handler.LogoutHandler)        // Requires handler.LogoutHandler
+		auth.POST("/refresh", handler.RefreshTokenHandler)
+		auth.POST("/logout", handler.LogoutHandler)
 	}
 
-	// --- Protected Routes (require AuthMiddleware) ---
-	// Create a protected group that applies the AuthMiddleware. Using
-	// root-level paths (e.g. /account) preserves existing client routes.
 	protected := r.Group("/")
 	protected.Use(middleware.AuthMiddleware())
-
-	// Wallet Features
 	wallet := protected.Group("/wallet")
 	{
 		wallet.GET("/addresses/:phone_number", handler.WalletAddressFromPhoneHandler)
@@ -49,7 +36,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 		wallet.GET("/balances", handler.GetUserWalletBalancesHandler)
 	}
 
-	// Payments Features
 	payments := protected.Group("/payments")
 	{
 		payments.POST("", handler.CreatePaymentHandler)
@@ -60,8 +46,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		payments.GET("/tx/:hash", handler.GetPaymentByTransactionHashHandler)
 	}
 
-	// --- Account Settings Features (NEW) ---
-	account := protected.Group("/account") // Group related account settings routes
+	account := protected.Group("/account")
 	{
 		account.PATCH("/change-password", handler.ChangePasswordHandler)
 		account.PATCH("/update-email", handler.UpdateEmailHandler)
