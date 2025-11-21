@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"time"
 
@@ -61,7 +60,6 @@ func CreatePayment(ctx context.Context, payment *model.Payment) error {
 				}
 			}
 		}
-		slog.Error("Failed to create payment", slog.Any("error", err))
 		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -102,7 +100,6 @@ func GetPaymentByID(ctx context.Context, paymentID uuid.UUID) (*model.Payment, e
 		if err == sql.ErrNoRows {
 			return nil, ErrorPaymentNotFound
 		}
-		slog.Error("Failed to get payment by ID", slog.Any("error", err), slog.Any("paymentID", paymentID))
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -143,7 +140,6 @@ func GetPaymentByTransactionHash(ctx context.Context, txHash string) (*model.Pay
 		if err == sql.ErrNoRows {
 			return nil, ErrorPaymentNotFound
 		}
-		slog.Error("Failed to get payment by transaction hash", slog.Any("error", err), slog.String("txHash", txHash))
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -176,7 +172,6 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 	var totalCount int64
 	err := db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
 	if err != nil {
-		slog.Error("Failed to count payments", slog.Any("error", err))
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -198,7 +193,6 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 
 	rows, err := db.QueryContext(ctx, selectQuery, args...)
 	if err != nil {
-		slog.Error("Failed to query payments", slog.Any("error", err))
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 	defer rows.Close()
@@ -224,14 +218,12 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 			&payment.ConfirmedAt,
 		)
 		if err != nil {
-			slog.Error("Failed to scan payment row", slog.Any("error", err))
 			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
 		payments = append(payments, payment.ToResponse())
 	}
 
 	if err = rows.Err(); err != nil {
-		slog.Error("Row iteration error", slog.Any("error", err))
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -265,7 +257,6 @@ func UpdatePaymentStatus(ctx context.Context, paymentID uuid.UUID, status model.
 
 	result, err := db.ExecContext(ctx, query, status, blockNumber, gasUsed, gasPrice, confirmedAt, paymentID)
 	if err != nil {
-		slog.Error("Failed to update payment status", slog.Any("error", err), slog.Any("paymentID", paymentID))
 		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -288,7 +279,6 @@ func DeletePayment(ctx context.Context, paymentID uuid.UUID) error {
 	query := "DELETE FROM payments WHERE id = $1"
 	result, err := db.ExecContext(ctx, query, paymentID)
 	if err != nil {
-		slog.Error("Failed to delete payment", slog.Any("error", err), slog.Any("paymentID", paymentID))
 		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
@@ -318,7 +308,6 @@ func GetPendingPayments(ctx context.Context) ([]*model.Payment, error) {
 
 	rows, err := db.QueryContext(ctx, query, model.PaymentStatusPending)
 	if err != nil {
-		slog.Error("Failed to query pending payments", slog.Any("error", err))
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 	defer rows.Close()
@@ -344,14 +333,12 @@ func GetPendingPayments(ctx context.Context) ([]*model.Payment, error) {
 			&payment.ConfirmedAt,
 		)
 		if err != nil {
-			slog.Error("Failed to scan pending payment row", slog.Any("error", err))
 			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
 		payments = append(payments, payment)
 	}
 
 	if err = rows.Err(); err != nil {
-		slog.Error("Row iteration error for pending payments", slog.Any("error", err))
 		return nil, fmt.Errorf("row iteration error: %w", err)
 	}
 

@@ -47,6 +47,7 @@ func LoginService(c *gin.Context, loginDetails model.UserLogin) (string, string,
 			slog.Warn("Login failed for email (user not found)", slog.String("email", loginDetails.Email))
 			return "", "", ErrInvalidCredentials
 		}
+
 		slog.Error("Login failed due to database error", slog.String("email", loginDetails.Email), slog.Any("error", err))
 		return "", "", err
 	}
@@ -102,6 +103,5 @@ func RefreshTokenService(c *gin.Context, refreshToken string) (string, error) {
 }
 
 func LogoutService(c *gin.Context, refreshToken string) error {
-	refreshTokenHash := repository.HashRefreshToken(refreshToken)
-	return repository.DeleteRefreshToken(c.Request.Context(), refreshTokenHash)
+	return repository.DeleteRefreshToken(c.Request.Context(), repository.HashRefreshToken(refreshToken))
 }

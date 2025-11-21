@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -21,21 +20,16 @@ func GetWalletAddressesFromPhone(ctx context.Context, phone string) ([]model.Wal
 	rows, err := db.QueryContext(ctx, query, phone)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		errors.As(err, &pgErr)
-		slog.Error("postgres error:",
-			slog.String("code", pgErr.Code),
-			slog.Any("err", pgErr))
-
-		return nil, err
+		if errors.As(err, &pgErr) {
+			return nil, fmt.Errorf("%w: %v", ErrorDatabase, pgErr)
+		}
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	tempAddress := model.WalletAddress{}
 	for rows.Next() {
 		if err := rows.Scan(&tempAddress.Address); err != nil {
-			slog.Error("postgres error:",
-				slog.Any("err", err))
-
-			return nil, err
+			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
 
 		addresses = append(addresses, tempAddress)
