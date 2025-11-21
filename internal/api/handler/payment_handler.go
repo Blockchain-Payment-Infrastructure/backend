@@ -96,6 +96,7 @@ func GetPaymentHandler(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
 			return
 		}
+
 		slog.Error("Failed to get payment", slog.Any("error", err), slog.String("paymentID", paymentID))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve payment"})
 		return

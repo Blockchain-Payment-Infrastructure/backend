@@ -25,12 +25,12 @@ import (
 func SignUpHandler(c *gin.Context) {
 	var userDetails model.UserSignUp
 	if err := c.ShouldBindJSON(&userDetails); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
 	if err := service.SignUpService(c, userDetails); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
@@ -64,7 +64,8 @@ func LoginHandler(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "An internal error occurred"})
+
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 

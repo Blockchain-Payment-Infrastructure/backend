@@ -5,7 +5,7 @@ WORKDIR /usr/src/app
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY . .
-RUN go build -tags prod -v -o /run-app cmd/api/main.go
+RUN go build -tags=prod -v -o /run-app cmd/api/main.go
 
 FROM debian:bookworm
 
