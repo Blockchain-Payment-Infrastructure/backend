@@ -1,10 +1,7 @@
 package middleware
 
 import (
-<<<<<<< HEAD
-=======
 	"errors"
->>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -23,12 +20,9 @@ import (
 // validation use the same secret.
 var JwtSecretKey = utils.JwtSecretKey
 
-<<<<<<< HEAD
-=======
 // Exported sentinel error for unexpected signing algorithms in tokens.
 var ErrorUnexpectedSigningMethod = errors.New("unexpected signing method")
 
->>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 func init() {
 	if len(JwtSecretKey) == 0 {
 		slog.Error("JWT_SECRET_KEY environment variable is not set!")
@@ -62,11 +56,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			// Validate the alg is what we expect
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-<<<<<<< HEAD
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-=======
 				return nil, fmt.Errorf("%w: %v", ErrorUnexpectedSigningMethod, token.Header["alg"])
->>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 			}
 			return JwtSecretKey, nil
 		})
