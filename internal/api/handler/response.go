@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -9,7 +11,14 @@ import (
 // underlying error when available; if only a message is provided and the
 // status is 5xx we register a generic error so the logger captures it.
 func JSONError(c *gin.Context, status int, message string, err error) {
-	_ = c.Error(err)
+	// Only register non-nil errors with Gin; c.Error(nil) panics.
+	// For server errors (5xx) where callers may not provide the underlying
+	// error, register a generic error so structured logging captures it.
+	if err != nil {
+		_ = c.Error(err)
+	} else if status >= 500 {
+		_ = c.Error(errors.New(message))
+	}
 
 	c.AbortWithStatusJSON(status, gin.H{"error": message})
 }

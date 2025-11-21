@@ -63,7 +63,17 @@ func InsertWalletAddressPhone(ctx context.Context, walletAddress, phoneNumber st
 	`
 	_, err := db.ExecContext(ctx, query, walletAddress, phoneNumber)
 	if err != nil {
-		if strings.Contains(err.Error(), "Duplicate entry") {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			// PostgreSQL unique constraint violation
+			if pgErr.Code == "23505" {
+				return ErrorWalletAddressAlreadyExists
+			}
+		}
+		// Also check for MySQL duplicate entry or generic duplicate error
+		if strings.Contains(err.Error(), "Duplicate entry") || 
+		   strings.Contains(err.Error(), "duplicate key value") ||
+		   strings.Contains(err.Error(), "UNIQUE constraint") {
 			return ErrorWalletAddressAlreadyExists
 		}
 
