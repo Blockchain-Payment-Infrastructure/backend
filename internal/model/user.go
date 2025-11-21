@@ -9,7 +9,11 @@ type UserSignUp struct {
 	Email       string `json:"email" binding:"required,email"`
 	Username    string `json:"username" binding:"required,min=3"`
 	Password    string `json:"password" binding:"required,min=8"`
+<<<<<<< HEAD
 	PhoneNumber string `json:"phone_number" binding:"required,e164"` // Required, E.164 format validation
+=======
+	PhoneNumber string `json:"phone_number" binding:"required"`
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 }
 
 // UserLogin represents the input structure for user login.
@@ -19,7 +23,10 @@ type UserLogin struct {
 }
 
 // User represents the structure of a user as stored in the database.
+<<<<<<< HEAD
 // ID is a UUID to be consistent across the application.
+=======
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 type User struct {
 	ID             uuid.UUID `json:"id"`
 	Email          string    `json:"email"`
@@ -28,8 +35,13 @@ type User struct {
 	HashedPassword string    `json:"-"` // Store the hashed password, omit from JSON output
 }
 
+<<<<<<< HEAD
 // ChangePasswordRequest represents the input for changing a user's password.
 type ChangePasswordRequest struct {
+=======
+// UpdatePasswordRequest represents the input for changing a user's password.
+type UpdatePasswordRequest struct {
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	OldPassword string `json:"old_password" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=8"`
 }

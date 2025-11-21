@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"backend/internal/middleware"
 	"backend/internal/model"
 	"backend/internal/service"
+	"backend/internal/repository"
 	"log/slog"
 	"net/http"
 
@@ -28,30 +30,35 @@ import (
 func CreatePaymentHandler(c *gin.Context) {
 	userID, exists := c.Get(string(middleware.UserIDKey))
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		JSONError(c, http.StatusUnauthorized, "Unauthorized", nil)
 		return
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+		JSONError(c, http.StatusInternalServerError, "Invalid user ID in context", nil)
 		return
 	}
 
 	var req model.CreatePaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload: " + err.Error()})
+		JSONError(c, http.StatusBadRequest, "Invalid request payload: "+err.Error(), err)
 		return
 	}
 
 	payment, err := service.CreatePayment(c.Request.Context(), userIDStr, &req)
 	if err != nil {
 		slog.Error("Failed to create payment", slog.Any("error", err), slog.String("userID", userIDStr))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// Map known repository errors
+		if errors.Is(err, repository.ErrorDuplicateTransaction) {
+			JSONError(c, http.StatusConflict, err.Error(), err)
+			return
+		}
+		JSONError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	JSONSuccess(c, http.StatusCreated, gin.H{
 		"message": "Payment created successfully",
 		"payment": payment,
 	})
@@ -74,34 +81,35 @@ func CreatePaymentHandler(c *gin.Context) {
 func GetPaymentHandler(c *gin.Context) {
 	userID, exists := c.Get(string(middleware.UserIDKey))
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		JSONError(c, http.StatusUnauthorized, "Unauthorized", nil)
 		return
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+		JSONError(c, http.StatusInternalServerError, "Invalid user ID in context", nil)
 		return
 	}
 
 	paymentID := c.Param("id")
 	if _, err := uuid.Parse(paymentID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment ID format"})
+		JSONError(c, http.StatusBadRequest, "Invalid payment ID format", err)
 		return
 	}
 
 	payment, err := service.GetPayment(c.Request.Context(), userIDStr, paymentID)
 	if err != nil {
-		if err.Error() == "payment not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+		if errors.Is(err, repository.ErrorPaymentNotFound) {
+			JSONError(c, http.StatusNotFound, "Payment not found", err)
 			return
 		}
+
 		slog.Error("Failed to get payment", slog.Any("error", err), slog.String("paymentID", paymentID))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve payment"})
+		JSONError(c, http.StatusInternalServerError, "Failed to retrieve payment", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, payment)
+	JSONSuccess(c, http.StatusOK, payment)
 }
 
 // GetUserPaymentsHandler godoc
@@ -123,30 +131,29 @@ func GetPaymentHandler(c *gin.Context) {
 func GetUserPaymentsHandler(c *gin.Context) {
 	userID, exists := c.Get(string(middleware.UserIDKey))
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		JSONError(c, http.StatusUnauthorized, "Unauthorized", nil)
 		return
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+		JSONError(c, http.StatusInternalServerError, "Invalid user ID in context", nil)
 		return
 	}
 
 	var query model.PaymentQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters: " + err.Error()})
+		JSONError(c, http.StatusBadRequest, "Invalid query parameters: "+err.Error(), err)
 		return
 	}
 
 	payments, err := service.GetUserPayments(c.Request.Context(), userIDStr, &query)
 	if err != nil {
 		slog.Error("Failed to get user payments", slog.Any("error", err), slog.String("userID", userIDStr))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve payments"})
+		JSONError(c, http.StatusInternalServerError, "Failed to retrieve payments", err)
 		return
 	}
-
-	c.JSON(http.StatusOK, payments)
+	JSONSuccess(c, http.StatusOK, payments)
 }
 
 // GetPaymentByTransactionHashHandler godoc
@@ -166,40 +173,39 @@ func GetUserPaymentsHandler(c *gin.Context) {
 func GetPaymentByTransactionHashHandler(c *gin.Context) {
 	userID, exists := c.Get(string(middleware.UserIDKey))
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		JSONError(c, http.StatusUnauthorized, "Unauthorized", nil)
 		return
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+		JSONError(c, http.StatusInternalServerError, "Invalid user ID in context", nil)
 		return
 	}
 
 	txHash := c.Param("hash")
 	if txHash == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Transaction hash is required"})
+		JSONError(c, http.StatusBadRequest, "Transaction hash is required", nil)
 		return
 	}
 
 	// Basic validation for transaction hash format
 	if len(txHash) != 66 || txHash[:2] != "0x" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction hash format"})
+		JSONError(c, http.StatusBadRequest, "Invalid transaction hash format", nil)
 		return
 	}
 
 	payment, err := service.GetPaymentByTransactionHash(c.Request.Context(), userIDStr, txHash)
 	if err != nil {
-		if err.Error() == "payment not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+		if errors.Is(err, repository.ErrorPaymentNotFound) {
+			JSONError(c, http.StatusNotFound, "Payment not found", err)
 			return
 		}
 		slog.Error("Failed to get payment by transaction hash", slog.Any("error", err), slog.String("txHash", txHash))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve payment"})
+		JSONError(c, http.StatusInternalServerError, "Failed to retrieve payment", err)
 		return
 	}
-
-	c.JSON(http.StatusOK, payment)
+	JSONSuccess(c, http.StatusOK, payment)
 }
 
 // RefreshPaymentStatusHandler godoc
@@ -219,34 +225,34 @@ func GetPaymentByTransactionHashHandler(c *gin.Context) {
 func RefreshPaymentStatusHandler(c *gin.Context) {
 	userID, exists := c.Get(string(middleware.UserIDKey))
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		JSONError(c, http.StatusUnauthorized, "Unauthorized", nil)
 		return
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+		JSONError(c, http.StatusInternalServerError, "Invalid user ID in context", nil)
 		return
 	}
 
 	paymentID := c.Param("id")
 	if paymentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Payment ID is required"})
+		JSONError(c, http.StatusBadRequest, "Payment ID is required", nil)
 		return
 	}
 
 	payment, err := service.RefreshPaymentStatus(c.Request.Context(), userIDStr, paymentID)
 	if err != nil {
-		if err.Error() == "payment not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+		if errors.Is(err, repository.ErrorPaymentNotFound) {
+			JSONError(c, http.StatusNotFound, "Payment not found", err)
 			return
 		}
 		slog.Error("Failed to refresh payment status", slog.Any("error", err), slog.String("paymentID", paymentID))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh payment status"})
+		JSONError(c, http.StatusInternalServerError, "Failed to refresh payment status", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	JSONSuccess(c, http.StatusOK, gin.H{
 		"message": "Payment status refreshed",
 		"payment": payment,
 	})
@@ -266,22 +272,21 @@ func RefreshPaymentStatusHandler(c *gin.Context) {
 func GetPaymentStatsHandler(c *gin.Context) {
 	userID, exists := c.Get(string(middleware.UserIDKey))
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		JSONError(c, http.StatusUnauthorized, "Unauthorized", nil)
 		return
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+		JSONError(c, http.StatusInternalServerError, "Invalid user ID in context", nil)
 		return
 	}
 
 	stats, err := service.GetPaymentStats(c.Request.Context(), userIDStr)
 	if err != nil {
 		slog.Error("Failed to get payment stats", slog.Any("error", err), slog.String("userID", userIDStr))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve payment statistics"})
+		JSONError(c, http.StatusInternalServerError, "Failed to retrieve payment statistics", err)
 		return
 	}
-
-	c.JSON(http.StatusOK, stats)
+	JSONSuccess(c, http.StatusOK, stats)
 }

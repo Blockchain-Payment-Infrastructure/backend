@@ -38,7 +38,7 @@ func CreateUser(ctx context.Context, user model.UserSignUp) error {
 				default:
 					slog.Warn("Unhandled unique violation:",
 						slog.String("constraint", pgErr.ConstraintName))
-					return fmt.Errorf("unhandled unique constraint: %s", pgErr.ConstraintName)
+					return fmt.Errorf("%w: %s", ErrorUnhandledUniqueConstraint, pgErr.ConstraintName)
 				}
 			default:
 				slog.Error("postgres error:",
@@ -74,7 +74,7 @@ func FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
 			return nil, ErrorUserNotFound
 		}
 		slog.Error("Database query error in findUserByEmail", slog.Any("error", err))
-		return nil, fmt.Errorf("database query error: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	return user, nil
@@ -94,7 +94,11 @@ func FindUserByID(ctx context.Context, userID uuid.UUID) (*model.User, error) {
 			return nil, ErrorUserNotFound
 		}
 		slog.Error("Database query error in FindUserByID", slog.Any("error", err))
+<<<<<<< HEAD
 		return nil, fmt.Errorf("database query error: %w", err)
+=======
+		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 
 	return user, nil
@@ -102,19 +106,31 @@ func FindUserByID(ctx context.Context, userID uuid.UUID) (*model.User, error) {
 func UpdateUserPassword(ctx context.Context, userID uuid.UUID, newHashedPassword string) error {
 	db := database.New("")
 	if db == nil {
+<<<<<<< HEAD
 		return fmt.Errorf("database service not set in repository")
+=======
+		return ErrorDatabaseServiceNotSet
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 
 	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
 	result, err := database.New("").ExecContext(ctx, query, newHashedPassword, userID)
 	if err != nil {
 		slog.Error("Repository: Failed to update user password", slog.Any("error", err), slog.String("userID", userID.String()))
+<<<<<<< HEAD
 		return fmt.Errorf("failed to update password: %w", err)
+=======
+		return fmt.Errorf("%w: %v", ErrorUpdatePasswordFailed, err)
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
+<<<<<<< HEAD
 		return fmt.Errorf("user with ID %s not found or password was not changed", userID.String())
+=======
+		return ErrorUserNotModified
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 	return nil
 }
@@ -122,7 +138,11 @@ func UpdateUserPassword(ctx context.Context, userID uuid.UUID, newHashedPassword
 func UpdateUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) error {
 	db := database.New("")
 	if db == nil {
+<<<<<<< HEAD
 		return fmt.Errorf("database service not set in repository")
+=======
+		return ErrorDatabaseServiceNotSet
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 
 	query := `UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2`
@@ -133,26 +153,42 @@ func UpdateUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) err
 		// if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" { // Example for pgx, adjust if needed
 		// 	return fmt.Errorf("email already in use")
 		// }
+<<<<<<< HEAD
 		return fmt.Errorf("failed to update email: %w", err)
+=======
+		return fmt.Errorf("%w: %v", ErrorUpdateEmailFailed, err)
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
+<<<<<<< HEAD
 		return fmt.Errorf("user with ID %s not found or email was not changed", userID.String())
+=======
+		return ErrorUserNotModified
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 	return nil
 }
 func DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	db := database.New("")
 	if db == nil {
+<<<<<<< HEAD
 		return fmt.Errorf("database service not set in repository")
+=======
+		return ErrorDatabaseServiceNotSet
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 
 	// Start a transaction for deleting user and related data
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		slog.Error("Repository: Failed to begin transaction for user deletion", slog.Any("error", err))
+<<<<<<< HEAD
 		return fmt.Errorf("failed to begin transaction: %w", err)
+=======
+		return fmt.Errorf("%w: %v", ErrorDatabase, err)
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 	defer tx.Rollback() // Rollback on error if commit doesn't happen
 
@@ -170,12 +206,20 @@ func DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	result, err := tx.ExecContext(ctx, queryDeleteUser, userID)
 	if err != nil {
 		slog.Error("Repository: Failed to delete user", slog.Any("error", err), slog.String("userID", userID.String()))
+<<<<<<< HEAD
 		return fmt.Errorf("failed to delete user: %w", err)
+=======
+		return fmt.Errorf("%w: %v", ErrorDatabase, err)
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
+<<<<<<< HEAD
 		return fmt.Errorf("user with ID %s not found or account was not deleted", userID.String())
+=======
+		return ErrorUserNotModified
+>>>>>>> a7fcdf6fcb199bb557aabcd039480382d05b095d
 	}
 
 	return tx.Commit() // Commit the transaction

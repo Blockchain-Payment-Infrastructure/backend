@@ -52,10 +52,10 @@ func GetPhoneNumberByUserID(ctx context.Context, userID string) (string, error) 
 	err := db.QueryRowContext(ctx, query, userID).Scan(&phoneNumber)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("user with ID %v not found", userID)
+			return "", ErrorUserNotFound
 		}
 
-		return "", fmt.Errorf("database query error: %w", err)
+		return "", fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	return phoneNumber, nil
@@ -70,10 +70,10 @@ func InsertWalletAddressPhone(ctx context.Context, walletAddress, phoneNumber st
 	_, err := db.ExecContext(ctx, query, walletAddress, phoneNumber)
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate entry") {
-			return fmt.Errorf("wallet address already exists")
+			return ErrorWalletAddressAlreadyExists
 		}
 
-		return fmt.Errorf("database insert error: %w", err)
+		return fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
 	return nil
