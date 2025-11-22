@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"time"
 
@@ -150,9 +149,7 @@ func GetPaymentByTransactionHash(ctx context.Context, txHash string) (*model.Pay
 // GetPaymentsByUserID retrieves payments for a specific user with pagination and filtering
 func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.PaymentQuery) (*model.PaymentListResponse, error) {
 	db := database.New("")
-	slog.Info(userID.String())
-	// 1. Static Query (No Pagination, No optional filters)
-	// We use $1 to safely pass the userID.
+
 	const selectQuery = `
 		SELECT id, user_id, from_address, to_address, amount, currency,
 			   transaction_hash, block_number, gas_used, gas_price,
@@ -161,7 +158,6 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 		WHERE user_id = $1
 		ORDER BY created_at DESC`
 
-	// 2. Execute Query
 	rows, err := db.QueryContext(ctx, selectQuery, userID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
@@ -188,23 +184,13 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 			&payment.UpdatedAt,
 			&payment.ConfirmedAt,
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
 
-		// --- OPTIONAL: Backend Unit Conversion ---
-		// Note: It is generally safer to send the raw Wei string to the frontend
-		// and convert it there. But if you must do it here:
 		amountInt, _ := strconv.ParseUint(payment.Amount, 10, 64)
-
-		// Use Float64 for division to keep decimals (e.g. 1.5 ETH), otherwise 1.5 becomes 1.
-		// 1e18 is the standard Wei divisor.
-		val := float64(amountInt) / 1e18
-
-		// Format back to string, removing trailing zeros if necessary
-		payment.Amount = strconv.FormatFloat(val, 'f', -1, 64)
-		// ------------------------------------------
-
+		payment.Amount = strconv.FormatFloat(float64(amountInt)/1e18, 'f', -1, 64)
 		payments = append(payments, payment.ToResponse())
 	}
 
@@ -212,10 +198,7 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
-	// 3. Return Response
-	// Since we are returning ALL data, PageSize equals the total count.
 	totalCount := int64(len(payments))
-	slog.Info(fmt.Sprintf("%v", payments))
 
 	return &model.PaymentListResponse{
 		Payments:   payments,
