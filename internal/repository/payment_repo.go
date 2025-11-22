@@ -7,7 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math"
+	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -149,49 +150,19 @@ func GetPaymentByTransactionHash(ctx context.Context, txHash string) (*model.Pay
 // GetPaymentsByUserID retrieves payments for a specific user with pagination and filtering
 func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.PaymentQuery) (*model.PaymentListResponse, error) {
 	db := database.New("")
-
-	// Build WHERE clause
-	whereClause := "WHERE user_id = $1"
-	args := []interface{}{userID}
-	argCount := 1
-
-	if query.Status != nil {
-		argCount++
-		whereClause += fmt.Sprintf(" AND status = $%d", argCount)
-		args = append(args, *query.Status)
-	}
-
-	if query.Currency != nil {
-		argCount++
-		whereClause += fmt.Sprintf(" AND currency = $%d", argCount)
-		args = append(args, *query.Currency)
-	}
-
-	// Count total records
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM payments %s", whereClause)
-	var totalCount int64
-	err := db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
-	}
-
-	// Calculate pagination
-	offset := (query.Page - 1) * query.PageSize
-	totalPages := int(math.Ceil(float64(totalCount) / float64(query.PageSize)))
-
-	// Get paginated results
-	selectQuery := fmt.Sprintf(`
+	slog.Info(userID.String())
+	// 1. Static Query (No Pagination, No optional filters)
+	// We use $1 to safely pass the userID.
+	const selectQuery = `
 		SELECT id, user_id, from_address, to_address, amount, currency,
 			   transaction_hash, block_number, gas_used, gas_price,
 			   status, description, created_at, updated_at, confirmed_at
-		FROM payments %s
-		ORDER BY created_at DESC
-		LIMIT $%d OFFSET $%d`,
-		whereClause, argCount+1, argCount+2)
+		FROM payments 
+		WHERE user_id = $1
+		ORDER BY created_at DESC`
 
-	args = append(args, query.PageSize, offset)
-
-	rows, err := db.QueryContext(ctx, selectQuery, args...)
+	// 2. Execute Query
+	rows, err := db.QueryContext(ctx, selectQuery, userID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
@@ -220,6 +191,20 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
+
+		// --- OPTIONAL: Backend Unit Conversion ---
+		// Note: It is generally safer to send the raw Wei string to the frontend
+		// and convert it there. But if you must do it here:
+		amountInt, _ := strconv.ParseUint(payment.Amount, 10, 64)
+
+		// Use Float64 for division to keep decimals (e.g. 1.5 ETH), otherwise 1.5 becomes 1.
+		// 1e18 is the standard Wei divisor.
+		val := float64(amountInt) / 1e18
+
+		// Format back to string, removing trailing zeros if necessary
+		payment.Amount = strconv.FormatFloat(val, 'f', -1, 64)
+		// ------------------------------------------
+
 		payments = append(payments, payment.ToResponse())
 	}
 
@@ -227,12 +212,17 @@ func GetPaymentsByUserID(ctx context.Context, userID uuid.UUID, query *model.Pay
 		return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 	}
 
+	// 3. Return Response
+	// Since we are returning ALL data, PageSize equals the total count.
+	totalCount := int64(len(payments))
+	slog.Info(fmt.Sprintf("%v", payments))
+
 	return &model.PaymentListResponse{
 		Payments:   payments,
 		TotalCount: totalCount,
-		Page:       query.Page,
-		PageSize:   query.PageSize,
-		TotalPages: totalPages,
+		Page:       1,
+		PageSize:   int(totalCount),
+		TotalPages: 1,
 	}, nil
 }
 
@@ -371,7 +361,7 @@ func GetUserWalletAddresses(ctx context.Context, userID string) ([]string, error
 	var addresses []string
 	for rows.Next() {
 		var address string
-			if err := rows.Scan(&address); err != nil {
+		if err := rows.Scan(&address); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrorDatabase, err)
 		}
 		addresses = append(addresses, address)

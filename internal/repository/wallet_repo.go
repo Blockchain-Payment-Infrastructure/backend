@@ -60,6 +60,7 @@ func InsertWalletAddressPhone(ctx context.Context, walletAddress, phoneNumber st
 	query := `
 		INSERT INTO wallet_address_phone (address, phone_number)
 		VALUES ($1, $2)
+		ON CONFLICT (address) DO NOTHING;
 	`
 	_, err := db.ExecContext(ctx, query, walletAddress, phoneNumber)
 	if err != nil {
